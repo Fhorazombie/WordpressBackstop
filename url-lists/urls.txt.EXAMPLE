@@ -1,0 +1,47 @@
+# Archivo de ejemplo para lista de URLs
+# 
+# Este archivo contiene URLs para generar escenarios de BackstopJS
+# 
+# FORMATO:
+# - Una URL por línea
+# - Las líneas que empiezan con # son comentarios y se ignoran
+# - Las líneas vacías se ignoran
+# - Puedes agregar comentarios inline después de la URL usando #
+#
+# USO:
+# 1. Copia este archivo y renómbralo (ej: urls.txt)
+# 2. Agrega tus URLs (una por línea)
+# 3. Ejecuta: URL_LIST=urls.txt npm run generate-list
+#
+# EJEMPLO DE URLs:
+
+# Homepage
+https://ejemplo.com
+
+# Páginas principales
+https://ejemplo.com/about
+https://ejemplo.com/contact
+https://ejemplo.com/services
+
+# Blog
+https://ejemplo.com/blog
+https://ejemplo.com/blog/articulo-1
+https://ejemplo.com/blog/articulo-2
+
+# Productos
+https://ejemplo.com/products
+https://ejemplo.com/products/producto-1
+https://ejemplo.com/products/producto-2
+
+# También puedes usar comentarios inline:
+https://ejemplo.com/pricing  # Página de precios
+https://ejemplo.com/faq       # Preguntas frecuentes
+
+# URLs con parámetros también son válidas
+https://ejemplo.com/search?q=test
+https://ejemplo.com/category?id=123
+
+# URLs locales para desarrollo
+# https://localhost:3000
+# https://localhost:3000/admin
+# https://miapp.test/dashboard

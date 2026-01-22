@@ -1,0 +1,88 @@
+<svg width="600" height="600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Definitions for arrowheads -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
+  </defs>
+
+  <!-- Styles -->
+  <style>
+    .box { fill: #f0f4f8; stroke: #333; stroke-width: 2; rx: 5; ry: 5; }
+    .decision { fill: #fff0f0; stroke: #333; stroke-width: 2; }
+    .text { font-family: Arial, sans-serif; font-size: 12px; text-anchor: middle; fill: #333; }
+    .line { stroke: #333; stroke-width: 2; marker-end: url(#arrowhead); fill: none; }
+  </style>
+
+  <!-- Nodes -->
+  
+  <!-- Inicio -->
+  <rect x="250" y="10" width="100" height="40" class="box" />
+  <text x="300" y="35" class="text">Inicio</text>
+
+  <!-- Decision: Fuente? -->
+  <polygon points="300,70 360,100 300,130 240,100" class="decision" />
+  <text x="300" y="105" class="text">¿Fuente?</text>
+
+  <!-- Rama Izquierda: Sitemap -->
+  <rect x="50" y="150" width="120" height="40" class="box" />
+  <text x="110" y="175" class="text">Sitemap XML</text>
+
+  <rect x="50" y="220" width="120" height="40" class="box" />
+  <text x="110" y="245" class="text">Descargar/Filtrar</text>
+
+  <rect x="50" y="290" width="120" height="40" class="box" />
+  <text x="110" y="315" class="text">Extraer URLs</text>
+
+  <!-- Rama Derecha: Lista -->
+  <rect x="430" y="150" width="120" height="40" class="box" />
+  <text x="490" y="175" class="text">Lista (.txt/.json)</text>
+
+  <rect x="430" y="220" width="120" height="40" class="box" />
+  <text x="490" y="245" class="text">Leer Archivo</text>
+
+  <rect x="430" y="290" width="120" height="40" class="box" />
+  <text x="490" y="315" class="text">Extraer URLs</text>
+
+  <!-- Convergencia -->
+  <rect x="240" y="360" width="120" height="40" class="box" />
+  <text x="300" y="385" class="text">Generar Escenarios</text>
+
+  <rect x="240" y="430" width="120" height="40" class="box" />
+  <text x="300" y="455" class="text">Combinar Puppeteer</text>
+
+  <rect x="240" y="500" width="120" height="40" class="box" />
+  <text x="300" y="525" class="text">Escribir Config</text>
+
+  <rect x="250" y="560" width="100" height="30" class="box" style="rx: 15; ry: 15;" />
+  <text x="300" y="580" class="text">Fin</text>
+
+  <!-- Connections -->
+  
+  <!-- Inicio -> Decision -->
+  <path d="M300,50 L300,70" class="line" />
+
+  <!-- Decision -> Sitemap (Left) -->
+  <path d="M240,100 L110,100 L110,150" class="line" />
+  
+  <!-- Decision -> Lista (Right) -->
+  <path d="M360,100 L490,100 L490,150" class="line" />
+
+  <!-- Left Branch Flow -->
+  <path d="M110,190 L110,220" class="line" />
+  <path d="M110,260 L110,290" class="line" />
+  
+  <!-- Right Branch Flow -->
+  <path d="M490,190 L490,220" class="line" />
+  <path d="M490,260 L490,290" class="line" />
+
+  <!-- Convergence to Generar Escenarios -->
+  <path d="M110,330 L110,345 L300,345 L300,360" class="line" />
+  <path d="M490,330 L490,345 L300,345 L300,360" class="line" />
+
+  <!-- Main Flow Down -->
+  <path d="M300,400 L300,430" class="line" />
+  <path d="M300,470 L300,500" class="line" />
+  <path d="M300,540 L300,560" class="line" />
+
+</svg>

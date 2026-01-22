@@ -1,0 +1,73 @@
+<svg width="600" height="500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#333" />
+    </marker>
+  </defs>
+  <rect width="100%" height="100%" fill="white" />
+  
+  <style>
+    .lifeline { stroke: #999; stroke-width: 1; stroke-dasharray: 5,5; }
+    .actor { fill: #E3F2FD; stroke: #333; stroke-width: 2; }
+    .box { fill: #FFF9C4; stroke: #333; stroke-width: 2; }
+    .text { font-family: Arial, sans-serif; font-size: 14px; text-anchor: middle; fill: #333; }
+    .message { stroke: #333; stroke-width: 2; marker-end: url(#arrow); }
+    .return { stroke: #333; stroke-width: 2; stroke-dasharray: 5,5; marker-end: url(#arrow); }
+    .label { font-family: Arial, sans-serif; font-size: 12px; fill: #333; }
+  </style>
+
+  <!-- Lifelines -->
+  <line x1="100" y1="80" x2="100" y2="450" class="lifeline" />
+  <line x1="300" y1="80" x2="300" y2="450" class="lifeline" />
+  <line x1="500" y1="80" x2="500" y2="450" class="lifeline" />
+
+  <!-- Actors/Objects -->
+  <rect x="50" y="30" width="100" height="50" class="actor" />
+  <text x="100" y="60" class="text">Usuario</text>
+
+  <rect x="250" y="30" width="100" height="50" class="box" />
+  <text x="300" y="60" class="text">Wrapper</text>
+  <text x="300" y="100" class="label" text-anchor="middle">(backstop-progress.js)</text>
+
+  <rect x="450" y="30" width="100" height="50" class="box" />
+  <text x="500" y="60" class="text">Backstop</text>
+  <text x="500" y="100" class="label" text-anchor="middle">(Child Process)</text>
+
+  <!-- Messages -->
+  <!-- 1. Execute -->
+  <line x1="100" y1="120" x2="290" y2="120" class="message" />
+  <text x="200" y="115" class="label" text-anchor="middle">npm run test:progress</text>
+
+  <!-- 2. Load Config -->
+  <path d="M300,130 L330,130 L330,150 L305,150" fill="none" stroke="#333" stroke-width="2" marker-end: url(#arrow) />
+  <text x="340" y="145" class="label">Carga config &amp; calc total</text>
+
+  <!-- 3. Spawn -->
+  <line x1="300" y1="180" x2="490" y2="180" class="message" />
+  <text x="400" y="175" class="label" text-anchor="middle">Spawn Process</text>
+
+  <!-- Loop Box -->
+  <rect x="220" y="200" width="360" height="120" fill="none" stroke="#CCC" stroke-width="1" />
+  <text x="240" y="220" class="label" font-weight="bold" fill="#999">Loop</text>
+
+  <!-- 4. Log Progress -->
+  <line x1="500" y1="240" x2="310" y2="240" class="message" />
+  <text x="400" y="235" class="label" text-anchor="middle">Log Output (stdout)</text>
+
+  <!-- 5. Update Bar -->
+  <path d="M300,250 L270,250 L270,270 L295,270" fill="none" stroke="#333" stroke-width="2" marker-end: url(#arrow) />
+  <text x="260" y="265" class="label" text-anchor="end">Actualiza Barra</text>
+
+  <!-- 6. Finish -->
+  <line x1="500" y1="350" x2="310" y2="350" class="return" />
+  <text x="400" y="345" class="label" text-anchor="middle">Proceso Termina</text>
+
+  <!-- 7. Summary -->
+  <line x1="300" y1="380" x2="110" y2="380" class="return" />
+  <text x="200" y="375" class="label" text-anchor="middle">Muestra Resumen</text>
+
+  <!-- 8. Open Report -->
+  <path d="M300,390 L330,390 L330,410 L305,410" fill="none" stroke="#333" stroke-width="2" marker-end: url(#arrow) />
+  <text x="340" y="405" class="label">Abre Reporte</text>
+
+</svg>

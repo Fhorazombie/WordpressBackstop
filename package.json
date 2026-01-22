@@ -1,0 +1,23 @@
+{
+  "name": "backstop-sitemap-generator",
+  "version": "1.0.0",
+  "description": "BackstopJS visual testing with sitemap URL extraction",
+  "scripts": {
+    "generate-sitemap": "node scripts/generate-from-sitemap.js",
+    "generate-list": "node scripts/generate-from-list.js",
+    "test": "backstop test",
+    "test:progress": "node scripts/backstop-progress.js test",
+    "reference": "backstop reference",
+    "reference:progress": "node scripts/backstop-progress.js reference",
+    "approve": "backstop approve",
+    "reset": "node scripts/reset-backstop.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "node-fetch": "^2.7.0",
+    "sitemapper": "^4.0.2"
+  },
+  "devDependencies": {
+    "backstopjs": "^6.2.2"
+  }
+}
