@@ -25,6 +25,9 @@ const pathsToRemove = [
   // Scripts de puppet
   `${SCRIPTS_DIR}/puppet`,
 
+  // Carpeta de referencia de diseño
+  'backstop_data/design_reference',
+
   // Archivo de configuración generado
   'backstop.json',
 

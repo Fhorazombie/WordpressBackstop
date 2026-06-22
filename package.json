@@ -10,7 +10,9 @@
     "reference": "backstop reference",
     "reference:progress": "node scripts/backstop-progress.js reference",
     "approve": "backstop approve",
-    "reset": "node scripts/reset-backstop.js"
+    "reset": "node scripts/reset-backstop.js",
+    "design-generate": "node scripts/generate-from-design.js",
+    "design-compare": "backstop reference && backstop test"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
