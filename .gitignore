@@ -8,6 +8,9 @@ node_modules/
 url-lists/*
 !url-lists/*.EXAMPLE
 
+# Carpeta de imágenes de referencia de diseño (Figma exports, etc.)
+design_reference/
+
 # BackstopJS
 backstop.json
 backstop_data/bitmaps_reference/
@@ -15,6 +18,7 @@ backstop_data/bitmaps_test/
 backstop_data/html_report/
 backstop_data/ci_report/
 backstop_data/engine_scripts/puppet/wrapper_*.js
+backstop_data/design_reference/
 
 # Ignorar carpetas de proyectos personalizados dentro de backstop_data
 backstop_data/*/
