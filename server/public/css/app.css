@@ -415,6 +415,8 @@ code {
   font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0.01em;
+  text-decoration: none;
+  display: inline-block;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 .btn:hover { border-color: var(--cyan-dim); color: #fff; box-shadow: 0 0 12px rgba(0, 240, 255, 0.18); animation: btn-jitter 0.22s linear; }
@@ -596,6 +598,9 @@ textarea#urllist-content {
   padding: 1rem;
 }
 .modal-backdrop.open { display: flex; }
+/* El detalle de proyecto queda debajo del modal genérico (escenarios/schedules),
+   para poder abrir "Nuevo escenario" encima sin cerrar el panel del proyecto. */
+#project-backdrop { z-index: 45; }
 .modal {
   background: var(--panel);
   border: 1px solid var(--cyan);
@@ -696,7 +701,7 @@ textarea#urllist-content {
   color: var(--text-dim);
   border: 1px solid var(--border-soft);
 }
-.badge.running { background: rgba(244, 228, 9, 0.1); color: var(--yellow); border-color: rgba(244, 228, 9, 0.4); }
+.badge.running, .badge.queued { background: rgba(244, 228, 9, 0.1); color: var(--yellow); border-color: rgba(244, 228, 9, 0.4); }
 .badge.success { background: rgba(57, 255, 158, 0.1); color: var(--green); border-color: rgba(57, 255, 158, 0.4); }
 .badge.failed { background: rgba(255, 51, 102, 0.12); color: var(--red); border-color: rgba(255, 51, 102, 0.4); }
 

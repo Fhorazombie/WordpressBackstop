@@ -3,6 +3,8 @@ const cron = require('node-cron');
 const { readJson, writeJson } = require('./store');
 const { SCHEDULES_FILE } = require('./paths');
 const runner = require('./runner');
+const projects = require('./projects');
+const projectRunner = require('./projectRunner');
 
 const tasks = new Map();
 
@@ -16,12 +18,23 @@ function saveSchedules(schedules) {
 
 function fire(schedule) {
   console.log(`⏰ Ejecutando schedule "${schedule.name}" (${schedule.id})`);
-  const { run } = runner.startPipeline({
-    steps: schedule.steps,
-    envOverrides: schedule.envOverrides || {},
-    label: `[Agendado] ${schedule.name}`,
-    scheduleId: schedule.id
-  });
+
+  let run;
+  if (schedule.projectId) {
+    const project = projects.get(schedule.projectId);
+    const steps = schedule.steps.map(s => (s === 'generate' ? projects.generateStepFor(project) : s));
+    run = projectRunner.runPipeline(project, steps, {
+      label: `[Agendado] ${schedule.name}`,
+      scheduleId: schedule.id
+    });
+  } else {
+    ({ run } = runner.startPipeline({
+      steps: schedule.steps,
+      envOverrides: schedule.envOverrides || {},
+      label: `[Agendado] ${schedule.name}`,
+      scheduleId: schedule.id
+    }));
+  }
 
   const schedules = readSchedules();
   const idx = schedules.findIndex(s => s.id === schedule.id);
@@ -81,6 +94,7 @@ function create(data) {
     name: data.name.trim(),
     cron: data.cron.trim(),
     steps: data.steps,
+    projectId: data.projectId || null,
     envOverrides: data.envOverrides || {},
     enabled: data.enabled !== false,
     timezone: data.timezone || '',
@@ -131,9 +145,19 @@ function validate(data) {
   if (!Array.isArray(data.steps) || data.steps.length === 0) {
     throw new Error('El schedule necesita al menos un paso (pipeline).');
   }
-  const invalid = data.steps.filter(s => !runner.isValidStep(s));
-  if (invalid.length > 0) {
-    throw new Error(`Pasos inválidos: ${invalid.join(', ')}`);
+
+  if (data.projectId) {
+    projects.get(data.projectId); // lanza si el proyecto no existe
+    const allowed = ['generate', 'reference', 'test', 'approve'];
+    const invalid = data.steps.filter(s => !allowed.includes(s));
+    if (invalid.length > 0) {
+      throw new Error(`Pasos inválidos para un schedule de proyecto: ${invalid.join(', ')}`);
+    }
+  } else {
+    const invalid = data.steps.filter(s => !runner.isValidStep(s));
+    if (invalid.length > 0) {
+      throw new Error(`Pasos inválidos: ${invalid.join(', ')}`);
+    }
   }
 }
 

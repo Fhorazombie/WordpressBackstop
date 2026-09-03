@@ -6,11 +6,16 @@
   const STEP_LABELS = {
     'generate-sitemap': 'Generar (Sitemap)',
     'generate-list': 'Generar (Lista)',
+    'generate-design': 'Generar (Diseño)',
     reference: 'Referencias',
     test: 'Pruebas',
     approve: 'Aprobar'
   };
-  const STATUS_LABELS = { running: 'En curso', success: 'Éxito', failed: 'Falló' };
+  // Un schedule atado a un proyecto usa nombres de paso abstractos: "generate"
+  // se resuelve del lado del servidor al paso real según el modo del proyecto.
+  const PROJECT_STEP_ORDER = ['generate', 'reference', 'test', 'approve'];
+  const PROJECT_STEP_LABELS = { generate: 'Generar', reference: 'Referencias', test: 'Pruebas', approve: 'Aprobar' };
+  const STATUS_LABELS = { queued: 'En cola', running: 'En curso', success: 'Éxito', failed: 'Falló' };
 
   // ---------- helpers ----------
 
@@ -66,7 +71,7 @@
   }
 
   function statusPill(status) {
-    const cls = status === 'success' ? 'pill-success' : status === 'failed' ? 'pill-failed' : status === 'running' ? 'pill-running' : 'pill-idle';
+    const cls = status === 'success' ? 'pill-success' : status === 'failed' ? 'pill-failed' : (status === 'running' || status === 'queued') ? 'pill-running' : 'pill-idle';
     return `<span class="pill ${cls}">${STATUS_LABELS[status] || status}</span>`;
   }
 
@@ -122,6 +127,7 @@
     if (e.key !== 'Escape') return;
     if (logBackdrop.classList.contains('open')) closeLogModal();
     else if (modalBackdrop.classList.contains('open')) closeModal();
+    else if (projectBackdrop.classList.contains('open')) closeProjectDetail();
   });
 
   function openLogModal(runId, title, onFinish) {
@@ -166,6 +172,7 @@
   const tabLoaders = {
     dashboard: loadDashboard,
     scenarios: loadScenarios,
+    projects: loadProjects,
     generate: loadGenerateTab,
     urllists: loadUrlLists,
     schedules: loadSchedules,
@@ -189,14 +196,16 @@
 
   async function loadDashboard() {
     try {
-      const [{ scenarios, viewports }, { schedules }, { runs }] = await Promise.all([
+      const [{ scenarios, viewports }, { schedules }, { runs }, { projects: projectList }] = await Promise.all([
         api('/scenarios'),
         api('/schedules'),
-        api('/runs?limit=6')
+        api('/runs?limit=6'),
+        api('/projects')
       ]);
       document.getElementById('stat-scenarios').textContent = scenarios.length;
       document.getElementById('stat-viewports').textContent = viewports.length;
       document.getElementById('stat-schedules').textContent = schedules.filter(s => s.enabled).length;
+      document.getElementById('stat-projects').textContent = projectList.length;
       const lastRunEl = document.getElementById('stat-lastrun');
       lastRunEl.textContent = runs[0] ? fmtRelative(runs[0].startedAt) : 'Sin corridas';
       lastRunEl.title = runs[0] ? fmtDate(runs[0].startedAt) : '';
@@ -403,6 +412,8 @@
       document.getElementById('gen-sample-mode').checked = env.SITEMAP_SAMPLE_MODE === 'true';
       document.getElementById('gen-sample-size').value = env.SAMPLE_SIZE || '';
       document.getElementById('gen-max-urls').value = env.MAX_URLS || '';
+      document.getElementById('gen-delay').value = env.SCENARIO_DELAY || '';
+      document.getElementById('gen-list-delay').value = env.SCENARIO_DELAY || '';
 
       const { files } = await api('/url-lists');
       const select = document.getElementById('gen-url-list');
@@ -428,6 +439,8 @@
     const maxUrls = document.getElementById('gen-max-urls').value;
     if (sampleSize) env.SAMPLE_SIZE = sampleSize;
     if (maxUrls) env.MAX_URLS = maxUrls;
+    const delay = document.getElementById('gen-delay').value.trim();
+    if (delay) env.SCENARIO_DELAY = delay;
 
     try {
       const { runId } = await api('/generate/sitemap', { method: 'POST', body: JSON.stringify({ env }) });
@@ -440,8 +453,11 @@
   document.getElementById('btn-gen-list').addEventListener('click', async () => {
     const file = document.getElementById('gen-url-list').value;
     if (!file) { toast('Elegí una lista de URLs primero.', true); return; }
+    const env = { URL_LIST: file };
+    const delay = document.getElementById('gen-list-delay').value.trim();
+    if (delay) env.SCENARIO_DELAY = delay;
     try {
-      const { runId } = await api('/generate/list', { method: 'POST', body: JSON.stringify({ env: { URL_LIST: file } }) });
+      const { runId } = await api('/generate/list', { method: 'POST', body: JSON.stringify({ env }) });
       openLogModal(runId, `Generar desde Lista (${file})`, () => { loadScenarios(); loadDashboard(); loadHistory(); });
     } catch (error) {
       toast(error.message, true);
@@ -548,13 +564,25 @@
     return presets.map(([label, expr]) => `<button type="button" class="btn btn-sm" data-cron="${expr}">${label}</button>`).join(' ');
   }
 
-  function scheduleFormHtml(schedule = {}) {
-    const steps = new Set(schedule.steps || ['test']);
-    const stepInputs = STEP_ORDER.map(step => `
-      <label><input type="checkbox" data-step="${step}" ${steps.has(step) ? 'checked' : ''} /> <span>${STEP_LABELS[step]}</span></label>
+  function scheduleStepsHtml(steps, projectId) {
+    const order = projectId ? PROJECT_STEP_ORDER : STEP_ORDER;
+    const labels = projectId ? PROJECT_STEP_LABELS : STEP_LABELS;
+    return order.map(step => `
+      <label><input type="checkbox" data-step="${step}" ${steps.has(step) ? 'checked' : ''} /> <span>${labels[step]}</span></label>
     `).join('');
+  }
+
+  function scheduleFormHtml(schedule = {}, projectList = []) {
+    const steps = new Set(schedule.steps || ['test']);
+    const projectOptions = ['<option value="">Proyecto principal (backstop.json)</option>']
+      .concat(projectList.map(p => `<option value="${p.id}"${schedule.projectId === p.id ? ' selected' : ''}>${escapeAttr(p.name)}</option>`))
+      .join('');
     return `
       <div class="field"><label>Nombre</label><input id="s-name" value="${escapeAttr(schedule.name || '')}" placeholder="Regresión nocturna" /></div>
+      <div class="field">
+        <label>Proyecto</label>
+        <select id="s-project">${projectOptions}</select>
+      </div>
       <div class="field">
         <label>Expresión cron (UTC)</label>
         <input id="s-cron" value="${escapeAttr(schedule.cron || '0 3 * * *')}" placeholder="0 3 * * *" />
@@ -563,7 +591,7 @@
       </div>
       <div class="field">
         <label>Pipeline (se ejecuta en este orden)</label>
-        <div class="checkbox-list">${stepInputs}</div>
+        <div class="checkbox-list" id="s-steps">${scheduleStepsHtml(steps, schedule.projectId)}</div>
       </div>
       <div class="field checkbox"><label><input type="checkbox" id="s-enabled" ${schedule.enabled === false ? '' : 'checked'} /> Activo</label></div>
       <div class="actions-row"><button class="btn btn-primary" id="s-submit">Guardar schedule</button></div>
@@ -571,20 +599,38 @@
   }
 
   function readScheduleForm(body) {
-    const steps = STEP_ORDER.filter(step => body.querySelector(`[data-step="${step}"]`).checked);
+    const projectId = body.querySelector('#s-project').value || null;
+    const order = projectId ? PROJECT_STEP_ORDER : STEP_ORDER;
+    const steps = order.filter(step => {
+      const input = body.querySelector(`[data-step="${step}"]`);
+      return input && input.checked;
+    });
     return {
       name: body.querySelector('#s-name').value.trim(),
       cron: body.querySelector('#s-cron').value.trim(),
       steps,
+      projectId,
       enabled: body.querySelector('#s-enabled').checked
     };
   }
 
-  document.getElementById('btn-new-schedule').addEventListener('click', () => {
-    openModal('Nuevo schedule', scheduleFormHtml(), body => {
-      body.querySelectorAll('[data-cron]').forEach(btn => {
-        btn.addEventListener('click', () => { body.querySelector('#s-cron').value = btn.dataset.cron; });
-      });
+  function wireScheduleForm(body) {
+    body.querySelectorAll('[data-cron]').forEach(btn => {
+      btn.addEventListener('click', () => { body.querySelector('#s-cron').value = btn.dataset.cron; });
+    });
+    body.querySelector('#s-project').addEventListener('change', e => {
+      body.querySelector('#s-steps').innerHTML = scheduleStepsHtml(new Set(['test']), e.target.value || null);
+    });
+  }
+
+  document.getElementById('btn-new-schedule').addEventListener('click', async () => {
+    let projectList = [];
+    try {
+      ({ projects: projectList } = await api('/projects'));
+    } catch (error) { /* si falla, el schedule sólo ofrece el proyecto principal */ }
+
+    openModal('Nuevo schedule', scheduleFormHtml({}, projectList), body => {
+      wireScheduleForm(body);
       body.querySelector('#s-submit').addEventListener('click', async () => {
         try {
           await api('/schedules', { method: 'POST', body: JSON.stringify(readScheduleForm(body)) });
@@ -598,11 +644,14 @@
     });
   });
 
-  function editSchedule(schedule) {
-    openModal(`Editar: ${schedule.name}`, scheduleFormHtml(schedule), body => {
-      body.querySelectorAll('[data-cron]').forEach(btn => {
-        btn.addEventListener('click', () => { body.querySelector('#s-cron').value = btn.dataset.cron; });
-      });
+  async function editSchedule(schedule) {
+    let projectList = [];
+    try {
+      ({ projects: projectList } = await api('/projects'));
+    } catch (error) { /* si falla, el schedule sólo ofrece el proyecto principal */ }
+
+    openModal(`Editar: ${schedule.name}`, scheduleFormHtml(schedule, projectList), body => {
+      wireScheduleForm(body);
       body.querySelector('#s-submit').addEventListener('click', async () => {
         try {
           await api(`/schedules/${schedule.id}`, { method: 'PUT', body: JSON.stringify(readScheduleForm(body)) });
@@ -648,21 +697,24 @@
 
   async function loadSchedules() {
     try {
-      const { schedules } = await api('/schedules');
+      const [{ schedules }, { projects: projectList }] = await Promise.all([api('/schedules'), api('/projects')]);
+      const projectNames = new Map(projectList.map(p => [p.id, p.name]));
       const tbody = document.querySelector('#table-schedules tbody');
       tbody.innerHTML = '';
       if (schedules.length === 0) {
-        tbody.appendChild(el('tr', { class: 'empty-row' }, el('td', { colspan: '6' }, 'No hay schedules configurados todavía.')));
+        tbody.appendChild(el('tr', { class: 'empty-row' }, el('td', { colspan: '7' }, 'No hay schedules configurados todavía.')));
         return;
       }
       schedules.forEach(sc => {
         const lastRun = sc.lastRun
           ? `${statusPill(sc.lastRun.status)} <span class="hint">${fmtDate(sc.lastRun.at)}</span>`
           : '<span class="hint">Nunca</span>';
+        const labels = sc.projectId ? PROJECT_STEP_LABELS : STEP_LABELS;
         tbody.appendChild(el('tr', {}, [
           el('td', {}, sc.name),
+          el('td', {}, sc.projectId ? (projectNames.get(sc.projectId) || sc.projectId) : el('span', { class: 'hint' }, 'Principal')),
           el('td', {}, el('code', {}, sc.cron)),
-          el('td', {}, sc.steps.map(s => STEP_LABELS[s] || s).join(' → ')),
+          el('td', {}, sc.steps.map(s => labels[s] || s).join(' → ')),
           el('td', { html: lastRun }),
           el('td', {}, el('label', { class: 'field checkbox', style: 'margin:0' }, el('input', {
             type: 'checkbox',
@@ -694,6 +746,7 @@
       document.getElementById('cfg-SAMPLE_SIZE').value = env.SAMPLE_SIZE || '';
       document.getElementById('cfg-MAX_URLS').value = env.MAX_URLS || '';
       document.getElementById('cfg-TIMEOUT').value = env.TIMEOUT || '';
+      document.getElementById('cfg-SCENARIO_DELAY').value = env.SCENARIO_DELAY || '';
       document.getElementById('cfg-PROJECT_ID').value = env.PROJECT_ID || '';
       document.getElementById('cfg-BACKSTOP_DATA_DIR').value = env.BACKSTOP_DATA_DIR || '';
       document.getElementById('cfg-URL_LIST').value = env.URL_LIST || '';
@@ -713,6 +766,7 @@
       SAMPLE_SIZE: document.getElementById('cfg-SAMPLE_SIZE').value.trim(),
       MAX_URLS: document.getElementById('cfg-MAX_URLS').value.trim(),
       TIMEOUT: document.getElementById('cfg-TIMEOUT').value.trim(),
+      SCENARIO_DELAY: document.getElementById('cfg-SCENARIO_DELAY').value.trim(),
       PROJECT_ID: document.getElementById('cfg-PROJECT_ID').value.trim(),
       BACKSTOP_DATA_DIR: document.getElementById('cfg-BACKSTOP_DATA_DIR').value.trim(),
       URL_LIST: document.getElementById('cfg-URL_LIST').value.trim(),
@@ -751,6 +805,499 @@
           }, 'Ver log'))
         ]));
       });
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  // ---------- Proyectos ----------
+
+  const PROJECT_MODE_LABELS = { sitemap: '🗺️ Sitemap', url: '🔗 URL / Lista', design: '🎨 Diseño vs. Live' };
+
+  function projectModeFieldsHtml(mode, s = {}) {
+    if (mode === 'sitemap') {
+      return `
+        <div class="field"><label>SITE_URL</label><input id="p-site-url" value="${escapeAttr(s.SITE_URL)}" placeholder="https://misitio.com" /></div>
+        <div class="field"><label>SITEMAP_URL (ruta)</label><input id="p-sitemap-url" value="${escapeAttr(s.SITEMAP_URL || '/sitemap.xml')}" /></div>
+        <div class="field checkbox"><label><input type="checkbox" id="p-sample-mode" ${s.SITEMAP_SAMPLE_MODE ? 'checked' : ''} /> Modo muestreo (sitios grandes)</label></div>
+        <div class="field-row">
+          <div class="field"><label>SAMPLE_SIZE</label><input id="p-sample-size" type="number" value="${s.SAMPLE_SIZE || ''}" /></div>
+          <div class="field"><label>MAX_URLS</label><input id="p-max-urls" type="number" value="${s.MAX_URLS || ''}" /></div>
+          <div class="field"><label>Espera antes de capturar (ms)</label><input id="p-delay" type="number" step="500" value="${s.SCENARIO_DELAY || ''}" placeholder="5000" /></div>
+        </div>
+      `;
+    }
+    if (mode === 'url') {
+      return `
+        <div class="field"><label>URLs (una por línea)</label><textarea id="p-urls" rows="5" placeholder="https://misitio.com/promo/">${escapeAttr(s.urls)}</textarea></div>
+        <div class="field"><label>Espera antes de capturar (ms)</label><input id="p-delay" type="number" step="500" value="${s.SCENARIO_DELAY || ''}" placeholder="5000" /></div>
+      `;
+    }
+    if (mode === 'design') {
+      return `
+        <div class="field-row">
+          <div class="field"><label>DESIGN_URL</label><input id="p-design-url" value="${escapeAttr(s.DESIGN_URL)}" placeholder="https://misitio.com/" /></div>
+          <div class="field"><label>Etiqueta (opcional)</label><input id="p-design-label" value="${escapeAttr(s.DESIGN_LABEL)}" placeholder="Homepage" /></div>
+        </div>
+        <div class="field"><label>Espera antes de capturar (ms)</label><input id="p-delay" type="number" step="500" value="${s.SCENARIO_DELAY || ''}" placeholder="1000" /></div>
+        <p class="hint">Subí la imagen del diseño (PNG/JPG) después de crear el proyecto, desde su panel de detalle.</p>
+      `;
+    }
+    return '';
+  }
+
+  function projectCreateFormHtml() {
+    return `
+      <div class="field"><label>Nombre</label><input id="p-name" placeholder="Landing de Verano" /></div>
+      <div class="field">
+        <label>Modo de generación</label>
+        <select id="p-mode">
+          <option value="sitemap">🗺️ Sitemap</option>
+          <option value="url">🔗 URL / Lista</option>
+          <option value="design">🎨 Diseño vs. Live</option>
+        </select>
+      </div>
+      <div id="p-mode-fields">${projectModeFieldsHtml('sitemap')}</div>
+      <div class="actions-row"><button class="btn btn-primary" id="p-submit">Crear proyecto</button></div>
+    `;
+  }
+
+  function readProjectModeSettings(body, mode) {
+    if (mode === 'sitemap') {
+      return {
+        SITE_URL: body.querySelector('#p-site-url').value.trim(),
+        SITEMAP_URL: body.querySelector('#p-sitemap-url').value.trim(),
+        SITEMAP_SAMPLE_MODE: body.querySelector('#p-sample-mode').checked,
+        SAMPLE_SIZE: body.querySelector('#p-sample-size').value.trim(),
+        MAX_URLS: body.querySelector('#p-max-urls').value.trim(),
+        SCENARIO_DELAY: body.querySelector('#p-delay').value.trim()
+      };
+    }
+    if (mode === 'url') {
+      return {
+        urls: body.querySelector('#p-urls').value,
+        SCENARIO_DELAY: body.querySelector('#p-delay').value.trim()
+      };
+    }
+    if (mode === 'design') {
+      return {
+        DESIGN_URL: body.querySelector('#p-design-url').value.trim(),
+        DESIGN_LABEL: body.querySelector('#p-design-label').value.trim(),
+        SCENARIO_DELAY: body.querySelector('#p-delay').value.trim()
+      };
+    }
+    return {};
+  }
+
+  document.getElementById('btn-new-project').addEventListener('click', () => {
+    openModal('Nuevo proyecto', projectCreateFormHtml(), body => {
+      const modeSelect = body.querySelector('#p-mode');
+      const fieldsContainer = body.querySelector('#p-mode-fields');
+      modeSelect.addEventListener('change', () => {
+        fieldsContainer.innerHTML = projectModeFieldsHtml(modeSelect.value);
+      });
+      body.querySelector('#p-submit').addEventListener('click', async () => {
+        const name = body.querySelector('#p-name').value.trim();
+        const mode = modeSelect.value;
+        const settings = readProjectModeSettings(body, mode);
+        try {
+          const { project } = await api('/projects', { method: 'POST', body: JSON.stringify({ name, mode, settings }) });
+          closeModal();
+          toast('Proyecto creado.');
+          loadProjects();
+          loadDashboard();
+          openProjectDetail(project.id);
+        } catch (error) {
+          toast(error.message, true);
+        }
+      });
+    });
+  });
+
+  async function quickDeleteProject(id, name) {
+    if (!confirm(`¿Eliminar el proyecto "${name}" y todos sus datos (backstop_data/${id}/)? No se puede deshacer.`)) return;
+    try {
+      await api(`/projects/${id}`, { method: 'DELETE' });
+      toast('Proyecto eliminado.');
+      loadProjects();
+      loadDashboard();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  async function loadProjects() {
+    try {
+      const { projects: projectList } = await api('/projects');
+      document.getElementById('project-count').textContent = projectList.length;
+      const tbody = document.querySelector('#table-projects tbody');
+      tbody.innerHTML = '';
+      if (projectList.length === 0) {
+        tbody.appendChild(el('tr', { class: 'empty-row' }, el('td', { colspan: '6' }, 'Todavía no creaste ningún proyecto adicional.')));
+        return;
+      }
+      projectList.forEach(p => {
+        const scenarioCount = p.config && p.config.scenarios ? p.config.scenarios.length : 0;
+        tbody.appendChild(el('tr', {}, [
+          el('td', {}, p.name),
+          el('td', {}, PROJECT_MODE_LABELS[p.mode] || p.mode),
+          el('td', {}, el('code', {}, `backstop_data/${p.id}/`)),
+          el('td', {}, String(scenarioCount)),
+          el('td', {}, p.lastGeneratedAt ? fmtRelative(p.lastGeneratedAt) : 'Nunca'),
+          el('td', { class: 'actions' }, [
+            el('button', { class: 'btn btn-sm btn-primary', onclick: () => openProjectDetail(p.id) }, 'Abrir'),
+            ' ',
+            el('button', { class: 'btn btn-sm btn-danger', onclick: () => quickDeleteProject(p.id, p.name) }, 'Eliminar')
+          ])
+        ]));
+      });
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  // ---- Detalle de proyecto ----
+
+  const projectBackdrop = document.getElementById('project-backdrop');
+  const projectModalTitle = document.getElementById('project-modal-title');
+  const projectModalMode = document.getElementById('project-modal-mode');
+  const projectModalBody = document.getElementById('project-modal-body');
+
+  function closeProjectDetail() {
+    projectBackdrop.classList.remove('open');
+    projectModalBody.innerHTML = '';
+  }
+  document.getElementById('project-modal-close').addEventListener('click', closeProjectDetail);
+  projectBackdrop.addEventListener('click', e => { if (e.target === projectBackdrop) closeProjectDetail(); });
+
+  function projectSettingsFieldsHtml(project) {
+    const s = project.settings || {};
+    if (project.mode === 'sitemap') {
+      return `
+        <div class="field-row">
+          <div class="field"><label>SITE_URL</label><input id="pd-site-url" value="${escapeAttr(s.SITE_URL)}" /></div>
+          <div class="field"><label>SITEMAP_URL</label><input id="pd-sitemap-url" value="${escapeAttr(s.SITEMAP_URL)}" /></div>
+        </div>
+        <div class="field-row">
+          <div class="field checkbox"><label><input type="checkbox" id="pd-sample-mode" ${s.SITEMAP_SAMPLE_MODE ? 'checked' : ''} /> Modo muestreo</label></div>
+          <div class="field"><label>SAMPLE_SIZE</label><input id="pd-sample-size" type="number" value="${s.SAMPLE_SIZE || ''}" /></div>
+          <div class="field"><label>MAX_URLS</label><input id="pd-max-urls" type="number" value="${s.MAX_URLS || ''}" /></div>
+          <div class="field"><label>Espera (ms)</label><input id="pd-delay" type="number" step="500" value="${s.SCENARIO_DELAY || ''}" placeholder="5000" /></div>
+        </div>
+      `;
+    }
+    if (project.mode === 'url') {
+      return `
+        <div class="field"><label>URLs (una por línea)</label><textarea id="pd-urls" rows="5">${escapeAttr(s.urls)}</textarea></div>
+        <div class="field"><label>Espera antes de capturar (ms)</label><input id="pd-delay" type="number" step="500" value="${s.SCENARIO_DELAY || ''}" placeholder="5000" /></div>
+      `;
+    }
+    if (project.mode === 'design') {
+      return `
+        <div class="field-row">
+          <div class="field"><label>DESIGN_URL</label><input id="pd-design-url" value="${escapeAttr(s.DESIGN_URL)}" /></div>
+          <div class="field"><label>Etiqueta</label><input id="pd-design-label" value="${escapeAttr(s.DESIGN_LABEL)}" /></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Umbral (%)</label><input id="pd-design-threshold" type="number" step="0.1" value="${s.DESIGN_THRESHOLD || 0.1}" /></div>
+          <div class="field"><label>Alto del viewport</label><input id="pd-design-height" type="number" value="${s.DESIGN_VIEWPORT_HEIGHT || 900}" /></div>
+          <div class="field"><label>Espera (ms)</label><input id="pd-delay" type="number" step="500" value="${s.SCENARIO_DELAY || ''}" placeholder="1000" /></div>
+        </div>
+        <div class="field"><label>Ocultar selectores (separados por coma)</label><input id="pd-design-hide" value="${escapeAttr(s.DESIGN_HIDE)}" placeholder=".cookie-banner, .chat" /></div>
+        <div class="field">
+          <label>Imagen de diseño</label>
+          <p class="hint">${s.DESIGN_IMAGE ? `Actual: <code>${escapeAttr(s.DESIGN_IMAGE)}</code>` : 'Todavía no subiste una imagen — subila antes de generar.'}</p>
+          <input type="file" id="pd-design-image" accept=".png,.jpg,.jpeg" />
+        </div>
+      `;
+    }
+    return '';
+  }
+
+  function readProjectSettingsForm(body, mode) {
+    if (mode === 'sitemap') {
+      return {
+        SITE_URL: body.querySelector('#pd-site-url').value.trim(),
+        SITEMAP_URL: body.querySelector('#pd-sitemap-url').value.trim(),
+        SITEMAP_SAMPLE_MODE: body.querySelector('#pd-sample-mode').checked,
+        SAMPLE_SIZE: body.querySelector('#pd-sample-size').value.trim(),
+        MAX_URLS: body.querySelector('#pd-max-urls').value.trim(),
+        SCENARIO_DELAY: body.querySelector('#pd-delay').value.trim()
+      };
+    }
+    if (mode === 'url') {
+      return {
+        urls: body.querySelector('#pd-urls').value,
+        SCENARIO_DELAY: body.querySelector('#pd-delay').value.trim()
+      };
+    }
+    if (mode === 'design') {
+      return {
+        DESIGN_URL: body.querySelector('#pd-design-url').value.trim(),
+        DESIGN_LABEL: body.querySelector('#pd-design-label').value.trim(),
+        DESIGN_THRESHOLD: body.querySelector('#pd-design-threshold').value.trim(),
+        DESIGN_VIEWPORT_HEIGHT: body.querySelector('#pd-design-height').value.trim(),
+        DESIGN_HIDE: body.querySelector('#pd-design-hide').value.trim(),
+        SCENARIO_DELAY: body.querySelector('#pd-delay').value.trim()
+      };
+    }
+    return {};
+  }
+
+  function projectDetailBodyHtml(project) {
+    const viewportsSection = project.mode === 'design' ? '' : `
+      <div class="panel">
+        <div class="panel-head"><h2>Viewports</h2><button class="btn btn-sm" id="pd-add-viewport">+ Viewport</button></div>
+        <table class="table" id="pd-table-viewports"><thead><tr><th>Label</th><th>Ancho</th><th>Alto</th><th></th></tr></thead><tbody></tbody></table>
+        <button class="btn btn-sm btn-primary" id="pd-save-viewports" style="margin-top:.75rem">Guardar viewports</button>
+      </div>
+    `;
+
+    return `
+      <div class="panel">
+        <h2>Configuración</h2>
+        ${projectSettingsFieldsHtml(project)}
+        <button class="btn btn-primary btn-sm" id="pd-save-settings">Guardar configuración</button>
+      </div>
+
+      ${viewportsSection}
+
+      <div class="panel">
+        <h2>Acciones</h2>
+        <div class="quick-actions">
+          <button class="btn" id="pd-generate">⚙️ Generar</button>
+          <button class="btn btn-primary" id="pd-reference">📸 Crear Referencias</button>
+          <button class="btn btn-primary" id="pd-test">🔍 Ejecutar Pruebas</button>
+          <button class="btn btn-success" id="pd-approve">✅ Aprobar Cambios</button>
+          <a class="btn" href="/backstop_data/${project.id}/html_report/index.html" target="_blank" rel="noopener">📊 Ver reporte ↗</a>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Escenarios (<span id="pd-scenario-count">0</span>)</h2><button class="btn btn-primary btn-sm" id="pd-new-scenario">+ Nuevo escenario</button></div>
+        <div class="table-wrap">
+          <table class="table" id="pd-table-scenarios">
+            <thead><tr><th>Label</th><th>URL</th><th>Delay</th><th>Umbral</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" style="border-color: rgba(255,51,102,0.4)">
+        <div class="panel-head">
+          <h2 style="color:var(--danger)">Zona de peligro</h2>
+          <button class="btn btn-danger btn-sm" id="pd-delete-project">Eliminar proyecto</button>
+        </div>
+        <p class="hint">Borra la configuración, los escenarios y toda la carpeta <code>backstop_data/${project.id}/</code>. No se puede deshacer.</p>
+      </div>
+    `;
+  }
+
+  let currentProjectViewports = [];
+  function renderProjectViewports(viewports) {
+    currentProjectViewports = viewports.map(v => ({ ...v }));
+    const tbody = document.querySelector('#pd-table-viewports tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    currentProjectViewports.forEach((vp, idx) => {
+      const labelInput = el('input', { value: vp.label, oninput: e => { currentProjectViewports[idx].label = e.target.value; } });
+      const widthInput = el('input', { type: 'number', value: vp.width, oninput: e => { currentProjectViewports[idx].width = e.target.value; } });
+      const heightInput = el('input', { type: 'number', value: vp.height, oninput: e => { currentProjectViewports[idx].height = e.target.value; } });
+      tbody.appendChild(el('tr', {}, [
+        el('td', {}, labelInput),
+        el('td', {}, widthInput),
+        el('td', {}, heightInput),
+        el('td', { class: 'actions' }, el('button', {
+          class: 'btn btn-sm btn-danger',
+          onclick: () => { currentProjectViewports.splice(idx, 1); renderProjectViewports(currentProjectViewports); }
+        }, 'Quitar'))
+      ]));
+    });
+  }
+
+  async function loadProjectScenarios(id) {
+    try {
+      const { scenarios, viewports } = await api(`/projects/${id}/scenarios`);
+      const countEl = document.getElementById('pd-scenario-count');
+      if (countEl) countEl.textContent = scenarios.length;
+
+      const tbody = document.querySelector('#pd-table-scenarios tbody');
+      if (tbody) {
+        tbody.innerHTML = '';
+        if (scenarios.length === 0) {
+          tbody.appendChild(el('tr', { class: 'empty-row' }, el('td', { colspan: '5' }, 'Sin escenarios todavía. Generá o agregá uno manualmente.')));
+        } else {
+          scenarios.forEach(sc => {
+            tbody.appendChild(el('tr', {}, [
+              el('td', {}, sc.label),
+              el('td', {}, el('code', {}, sc.url)),
+              el('td', {}, String(sc.delay)),
+              el('td', {}, String(sc.misMatchThreshold)),
+              el('td', { class: 'actions' }, [
+                el('button', { class: 'btn btn-sm', onclick: () => editProjectScenario(id, sc) }, 'Editar'),
+                ' ',
+                el('button', { class: 'btn btn-sm btn-danger', onclick: () => deleteProjectScenario(id, sc.label) }, 'Eliminar')
+              ])
+            ]));
+          });
+        }
+      }
+
+      if (document.getElementById('pd-table-viewports')) {
+        renderProjectViewports(viewports.length ? viewports : [
+          { label: 'phone', width: 320, height: 480 },
+          { label: 'tablet', width: 1024, height: 768 }
+        ]);
+      }
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  function editProjectScenario(projectId, scenario) {
+    openModal(`Editar: ${scenario.label}`, scenarioFormHtml(scenario), body => {
+      body.querySelector('#f-submit').addEventListener('click', async () => {
+        try {
+          await api(`/projects/${projectId}/scenarios/${encodeURIComponent(scenario.label)}`, {
+            method: 'PUT',
+            body: JSON.stringify(readScenarioForm())
+          });
+          closeModal();
+          toast('Escenario actualizado.');
+          loadProjectScenarios(projectId);
+        } catch (error) {
+          toast(error.message, true);
+        }
+      });
+    });
+  }
+
+  async function deleteProjectScenario(projectId, label) {
+    if (!confirm(`¿Eliminar el escenario "${label}"?`)) return;
+    try {
+      await api(`/projects/${projectId}/scenarios/${encodeURIComponent(label)}`, { method: 'DELETE' });
+      toast('Escenario eliminado.');
+      loadProjectScenarios(projectId);
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  function wireProjectDetail(project) {
+    const body = projectModalBody;
+
+    body.querySelector('#pd-save-settings').addEventListener('click', async () => {
+      try {
+        const settings = readProjectSettingsForm(body, project.mode);
+        await api(`/projects/${project.id}`, { method: 'PUT', body: JSON.stringify({ settings }) });
+        toast('Configuración guardada.');
+        loadProjects();
+      } catch (error) {
+        toast(error.message, true);
+      }
+    });
+
+    if (project.mode === 'design') {
+      const fileInput = body.querySelector('#pd-design-image');
+      fileInput.addEventListener('change', async () => {
+        if (!fileInput.files[0]) return;
+        const formData = new FormData();
+        formData.append('image', fileInput.files[0]);
+        try {
+          const res = await fetch(`/api/projects/${project.id}/design-image`, { method: 'POST', body: formData });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+          toast('Imagen subida.');
+          openProjectDetail(project.id);
+        } catch (error) {
+          toast(error.message, true);
+        }
+      });
+    }
+
+    if (project.mode !== 'design') {
+      body.querySelector('#pd-add-viewport').addEventListener('click', () => {
+        renderProjectViewports([...currentProjectViewports, { label: 'nuevo', width: 1280, height: 800 }]);
+      });
+      body.querySelector('#pd-save-viewports').addEventListener('click', async () => {
+        try {
+          await api(`/projects/${project.id}/viewports`, { method: 'PUT', body: JSON.stringify({ viewports: currentProjectViewports }) });
+          toast('Viewports guardados.');
+        } catch (error) {
+          toast(error.message, true);
+        }
+      });
+    }
+
+    loadProjectScenarios(project.id);
+
+    body.querySelector('#pd-new-scenario').addEventListener('click', () => {
+      openModal('Nuevo escenario', scenarioFormHtml(), formBody => {
+        formBody.querySelector('#f-submit').addEventListener('click', async () => {
+          try {
+            await api(`/projects/${project.id}/scenarios`, { method: 'POST', body: JSON.stringify(readScenarioForm()) });
+            closeModal();
+            toast('Escenario creado.');
+            loadProjectScenarios(project.id);
+          } catch (error) {
+            toast(error.message, true);
+          }
+        });
+      });
+    });
+
+    const runAction = async action => {
+      try {
+        const { runId } = await api(`/projects/${project.id}/run`, { method: 'POST', body: JSON.stringify({ action }) });
+        openLogModal(runId, `[${project.name}] ${STEP_LABELS[action] || action}`, () => {
+          loadProjectScenarios(project.id);
+          loadProjects();
+          loadHistory();
+        });
+      } catch (error) {
+        toast(error.message, true);
+      }
+    };
+    body.querySelector('#pd-reference').addEventListener('click', () => runAction('reference'));
+    body.querySelector('#pd-test').addEventListener('click', () => runAction('test'));
+    body.querySelector('#pd-approve').addEventListener('click', () => runAction('approve'));
+
+    body.querySelector('#pd-generate').addEventListener('click', async () => {
+      try {
+        const { runId } = await api(`/projects/${project.id}/generate`, { method: 'POST' });
+        openLogModal(runId, `[${project.name}] Generar`, () => {
+          loadProjectScenarios(project.id);
+          loadProjects();
+          loadDashboard();
+          loadHistory();
+        });
+      } catch (error) {
+        toast(error.message, true);
+      }
+    });
+
+    body.querySelector('#pd-delete-project').addEventListener('click', async () => {
+      if (!confirm(`¿Eliminar el proyecto "${project.name}" y todos sus datos (backstop_data/${project.id}/)? No se puede deshacer.`)) return;
+      try {
+        await api(`/projects/${project.id}`, { method: 'DELETE' });
+        closeProjectDetail();
+        toast('Proyecto eliminado.');
+        loadProjects();
+        loadDashboard();
+      } catch (error) {
+        toast(error.message, true);
+      }
+    });
+  }
+
+  async function openProjectDetail(id) {
+    try {
+      const { project } = await api(`/projects/${id}`);
+      projectModalTitle.textContent = project.name;
+      projectModalMode.textContent = PROJECT_MODE_LABELS[project.mode] || project.mode;
+      projectModalBody.innerHTML = projectDetailBodyHtml(project);
+      wireProjectDetail(project);
+      projectBackdrop.classList.add('open');
     } catch (error) {
       toast(error.message, true);
     }

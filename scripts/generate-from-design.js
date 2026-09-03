@@ -18,11 +18,17 @@ const DESIGN_LABEL      = process.env.DESIGN_LABEL || '';
 const DESIGN_THRESHOLD  = parseFloat(process.env.DESIGN_THRESHOLD) || 0.1;
 const DESIGN_HIDE       = process.env.DESIGN_HIDE || '';
 const DESIGN_VP_HEIGHT  = parseInt(process.env.DESIGN_VIEWPORT_HEIGHT) || 900;
+const SCENARIO_DELAY    = process.env.SCENARIO_DELAY ? parseInt(process.env.SCENARIO_DELAY) : 1000;
 const SCRIPTS_DIR       = process.env.BACKSTOP_SCRIPTS_DIR || 'backstop_data/engine_scripts';
 
 const ROOT         = path.resolve(__dirname, '..');
 const OUTPUT_FILE  = path.join(ROOT, 'backstop.json');
-const DESIGN_REF_DIR = path.join(ROOT, 'backstop_data', 'design_reference');
+
+// Respeta BACKSTOP_DATA_DIR (igual que generate-from-sitemap.js/generate-from-list.js)
+// para que cada proyecto tenga su propia carpeta de referencia de diseño aislada.
+const CUSTOM_DATA_DIR = process.env.BACKSTOP_DATA_DIR;
+const DATA_DIR = CUSTOM_DATA_DIR ? path.join('backstop_data', CUSTOM_DATA_DIR) : 'backstop_data';
+const DESIGN_REF_DIR = path.join(ROOT, DATA_DIR, 'design_reference');
 
 // ─── Detección de dimensiones PNG (bytes 16-23 del chunk IHDR) ────────────────
 function getPngDimensions(filePath) {
@@ -181,7 +187,7 @@ async function main() {
     referenceUrl: referenceUrl,
     cookiePath: `${SCRIPTS_DIR}/cookies.json`,
     readySelector: 'body',
-    delay: 1000,
+    delay: SCENARIO_DELAY,
     misMatchThreshold: threshold,
     requireSameDimensions: false,
     hideSelectors: hideSelectors,

@@ -24,6 +24,7 @@
       <nav class="nav">
         <button class="nav-item active" data-tab="dashboard"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></button>
         <button class="nav-item" data-tab="scenarios"><span class="nav-icon">🧩</span><span class="nav-label">Escenarios</span></button>
+        <button class="nav-item" data-tab="projects"><span class="nav-icon">🗂️</span><span class="nav-label">Proyectos</span></button>
         <button class="nav-item" data-tab="generate"><span class="nav-icon">⚙️</span><span class="nav-label">Generar</span></button>
         <button class="nav-item" data-tab="urllists"><span class="nav-icon">📄</span><span class="nav-label">Listas de URLs</span></button>
         <button class="nav-item" data-tab="schedules"><span class="nav-icon">⏰</span><span class="nav-label">Programación</span></button>
@@ -56,6 +57,10 @@
           <div class="stat-card">
             <div class="stat-value" id="stat-schedules">–</div>
             <div class="stat-label">Schedules activos</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-projects">–</div>
+            <div class="stat-label">Proyectos adicionales</div>
           </div>
           <div class="stat-card">
             <div class="stat-value" id="stat-lastrun">–</div>
@@ -121,11 +126,34 @@
         </div>
       </section>
 
+      <!-- Proyectos -->
+      <section class="tab" id="tab-projects">
+        <header class="tab-header">
+          <h1>Proyectos</h1>
+          <p>Páginas o sitios adicionales, cada uno con su propia carpeta de datos (<code>backstop_data/&lt;proyecto&gt;/</code>) y su propio modo de generación: sitemap, URL/lista o comparación de diseño.</p>
+        </header>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Proyectos (<span id="project-count">0</span>)</h2>
+            <button class="btn btn-primary btn-sm" id="btn-new-project">+ Nuevo proyecto</button>
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="table-projects">
+              <thead>
+                <tr><th>Nombre</th><th>Modo</th><th>Carpeta</th><th>Escenarios</th><th>Última generación</th><th></th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <!-- Generar -->
       <section class="tab" id="tab-generate">
         <header class="tab-header">
           <h1>Generar escenarios</h1>
-          <p>Crea escenarios automáticamente desde un sitemap XML o desde una lista de URLs.</p>
+          <p>Crea escenarios automáticamente desde un sitemap XML o desde una lista de URLs. Esto aplica al proyecto principal — para páginas adicionales aisladas usá la pestaña <strong>Proyectos</strong>.</p>
         </header>
 
         <div class="panel-grid">
@@ -138,6 +166,11 @@
               <div class="field"><label>SAMPLE_SIZE</label><input id="gen-sample-size" type="number" min="1" /></div>
               <div class="field"><label>MAX_URLS</label><input id="gen-max-urls" type="number" min="1" /></div>
             </div>
+            <div class="field">
+              <label>Espera antes de capturar (ms)</label>
+              <input id="gen-delay" type="number" min="0" step="500" placeholder="5000" />
+              <p class="hint">Subilo si el sitio tarda en cargar (animaciones, lazy-load, etc.).</p>
+            </div>
             <button class="btn btn-primary" id="btn-gen-sitemap">Generar desde Sitemap</button>
           </div>
 
@@ -148,6 +181,10 @@
               <select id="gen-url-list"></select>
             </div>
             <p class="hint">Administra el contenido de las listas en la pestaña <strong>Listas de URLs</strong>.</p>
+            <div class="field">
+              <label>Espera antes de capturar (ms)</label>
+              <input id="gen-list-delay" type="number" min="0" step="500" placeholder="5000" />
+            </div>
             <button class="btn btn-primary" id="btn-gen-list">Generar desde Lista</button>
           </div>
         </div>
@@ -196,6 +233,7 @@
               <thead>
                 <tr>
                   <th>Nombre</th>
+                  <th>Proyecto</th>
                   <th>Cron</th>
                   <th>Pipeline</th>
                   <th>Última corrida</th>
@@ -226,6 +264,7 @@
             <div class="field"><label>SAMPLE_SIZE</label><input id="cfg-SAMPLE_SIZE" type="number" /></div>
             <div class="field"><label>MAX_URLS</label><input id="cfg-MAX_URLS" type="number" /></div>
             <div class="field"><label>TIMEOUT (ms)</label><input id="cfg-TIMEOUT" type="number" /></div>
+            <div class="field"><label>SCENARIO_DELAY (ms)</label><input id="cfg-SCENARIO_DELAY" type="number" step="500" /></div>
           </div>
           <div class="field-row">
             <div class="field"><label>PROJECT_ID</label><input id="cfg-PROJECT_ID" /></div>
@@ -281,6 +320,18 @@
         <button class="modal-close" id="log-close">✕</button>
       </div>
       <pre class="log-view" id="log-view"></pre>
+    </div>
+  </div>
+
+  <!-- Modal de detalle de proyecto -->
+  <div class="modal-backdrop" id="project-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <h3 id="project-modal-title">Proyecto</h3>
+        <span class="badge" id="project-modal-mode"></span>
+        <button class="modal-close" id="project-modal-close">✕</button>
+      </div>
+      <div class="modal-body" id="project-modal-body"></div>
     </div>
   </div>
 

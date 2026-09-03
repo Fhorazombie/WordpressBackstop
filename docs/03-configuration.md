@@ -13,6 +13,7 @@ Puedes configurar el comportamiento del generador pasando variables de entorno a
 | `URL_LIST` | Ruta al archivo de lista de URLs (.txt o .json) para `generate-from-list.js`. | N/A (Requerido para `generate-list`) |
 | `MAX_URLS` | Límite máximo de URLs a procesar del sitemap. Útil para pruebas rápidas. | `null` (sin límite) |
 | `TIMEOUT` | Tiempo de espera máximo (en ms) para descargar el sitemap. | `30000` (30s) |
+| `SCENARIO_DELAY` | Tiempo de espera (en ms) antes de capturar cada página, una vez cargada. Súbelo para sitios con animaciones, lazy-load o contenido que tarda en renderizar. | `5000` (`1000` en modo Diseño) |
 | `DEBUG` | Activa logs detallados de depuración. | `false` |
 | `REQUEST_HEADERS` | JSON string con headers HTTP personalizados (ej. cookies de autenticación). | Ver abajo |
 | `REJECT_UNAUTHORIZED`| Fuerza la validación estricta de SSL (`true`/`false`). | Auto-detectado (false para local) |

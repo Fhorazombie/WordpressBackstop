@@ -28,6 +28,10 @@ const SCRIPTS_DIR = process.env.BACKSTOP_SCRIPTS_DIR || 'backstop_data/engine_sc
 const MAX_URLS = process.env.MAX_URLS ? parseInt(process.env.MAX_URLS) : null; // Límite opcional
 const TIMEOUT = process.env.TIMEOUT ? parseInt(process.env.TIMEOUT) : 30000; // Timeout en ms
 
+// Tiempo de espera antes de capturar cada página (ms). Subilo para sitios
+// con animaciones, lazy-load o contenido que tarda en renderizar.
+const SCENARIO_DELAY = process.env.SCENARIO_DELAY ? parseInt(process.env.SCENARIO_DELAY) : 5000;
+
 const SITEMAP = process.env.SITEMAP == '0' ? false : true;
 const PUPPET = process.env.PUPPET == '0' ? false : true;
 
@@ -765,7 +769,7 @@ function generateScenarios(urls) {
       url,
       referenceUrl: "",
       readySelector: "body",
-      delay: 5000,
+      delay: SCENARIO_DELAY,
       selectors: [],
       misMatchThreshold: 0.1,
       requireSameDimensions: true

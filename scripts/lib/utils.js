@@ -105,7 +105,10 @@ function generateLabel(url) {
 function generateScenarios(urls) {
   // Obtener configuración de directorios desde variables de entorno
   const SCRIPTS_DIR = process.env.BACKSTOP_SCRIPTS_DIR || 'backstop_data/engine_scripts';
-  
+  // Tiempo de espera antes de capturar cada página (ms). Subilo para sitios
+  // con animaciones, lazy-load o contenido que tarda en renderizar.
+  const DELAY = process.env.SCENARIO_DELAY ? parseInt(process.env.SCENARIO_DELAY, 10) : 5000;
+
   return urls.map(url => {
     const labelBase = generateLabel(url);
     // Generar hash corto para unicidad y evitar nombres de archivo largos
@@ -126,7 +129,7 @@ function generateScenarios(urls) {
       url,
       referenceUrl: "",
       readySelector: "body",
-      delay: 5000,
+      delay: DELAY,
       selectors: [],
       misMatchThreshold: 0.1,
       requireSameDimensions: true

@@ -165,15 +165,28 @@ npm run ui
 
 Esto levanta un servidor local (por defecto en `http://localhost:4780`, configurable con `UI_PORT`) con:
 
-*   **Dashboard**: contadores rápidos (escenarios, viewports, schedules activos, última corrida) y botones de acción rápida (generar, crear referencias, ejecutar pruebas, aprobar cambios), cada uno con el log en vivo de la ejecución.
-*   **Escenarios**: alta, edición y borrado de escenarios de `backstop.json` (URL, selectores a ocultar/remover, umbral de comparación, delay, etc.) y gestión de los viewports globales — sin necesidad de regenerar desde sitemap/lista.
-*   **Generar**: dispara `generate-from-sitemap` o `generate-from-list` desde el navegador, con los mismos parámetros que las variables de entorno (`SITE_URL`, `SITEMAP_URL`, muestreo, límites), mostrando el progreso en tiempo real.
+*   **Dashboard**: contadores rápidos (escenarios, viewports, schedules activos, proyectos adicionales, última corrida) y botones de acción rápida (generar, crear referencias, ejecutar pruebas, aprobar cambios), cada uno con el log en vivo de la ejecución.
+*   **Escenarios**: alta, edición y borrado de escenarios del proyecto principal (`backstop.json`) — URL, selectores a ocultar/remover, umbral de comparación, tiempo de espera antes de capturar, etc. — y gestión de sus viewports, sin necesidad de regenerar desde sitemap/lista.
+*   **Proyectos**: páginas o sitios *adicionales*, cada uno con su propia carpeta aislada (`backstop_data/<proyecto>/`) y su propio modo de generación — **Sitemap** (crawl completo), **URL/Lista** (una o varias URLs puntuales) o **Diseño vs. Live** (comparar una imagen exportada de Figma contra la URL real, con subida de imagen incluida). Cada proyecto tiene su propia configuración, sus propios escenarios y viewports, y sus propias acciones (Generar / Crear Referencias / Ejecutar Pruebas / Aprobar Cambios / Ver reporte) — completamente independiente del proyecto principal y del resto de los proyectos.
+*   **Generar**: dispara `generate-from-sitemap` o `generate-from-list` para el proyecto principal desde el navegador, con los mismos parámetros que las variables de entorno (`SITE_URL`, `SITEMAP_URL`, muestreo, límites, tiempo de espera), mostrando el progreso en tiempo real.
 *   **Listas de URLs**: crear, editar y borrar los archivos de `url-lists/` directamente desde la UI.
-*   **Programación**: crear *schedules* con expresión cron (con atajos comunes) que ejecutan un pipeline configurable — por ejemplo "generar desde sitemap → crear referencias" cada noche, o "ejecutar pruebas" cada hora — con historial de la última corrida, ejecución manual ("Ejecutar ahora") y activar/pausar sin perder la configuración.
-*   **Configuración**: editor de las variables principales del archivo `.env`.
-*   **Historial**: registro de todas las corridas (manuales y programadas) con su log completo.
+*   **Programación**: crear *schedules* con expresión cron (con atajos comunes) que ejecutan un pipeline configurable, para el proyecto principal o para cualquier proyecto adicional — por ejemplo "generar desde sitemap → crear referencias" cada noche, o "ejecutar pruebas" cada hora — con historial de la última corrida, ejecución manual ("Ejecutar ahora") y activar/pausar sin perder la configuración.
+*   **Configuración**: editor de las variables principales del archivo `.env`, incluyendo `SCENARIO_DELAY` (ver abajo).
+*   **Historial**: registro de todas las corridas (manuales y programadas, de cualquier proyecto) con su log completo.
 
-Los datos de esta interfaz (historial de corridas y schedules) se guardan en `data/` (ignorado por git, igual que `.env`), por lo que cada entorno mantiene su propia configuración.
+Todas las corridas —del proyecto principal o de cualquier proyecto adicional— comparten el mismo `backstop.json` de la raíz y la misma instancia de BackstopJS, así que el panel las ejecuta en fila (una por vez) automáticamente para que nunca se pisen entre sí; si disparás varias a la vez, las siguientes quedan "en cola" y arrancan apenas termina la anterior.
+
+Los datos de esta interfaz (historial de corridas, schedules y proyectos adicionales) se guardan en `data/` (ignorado por git, igual que `.env`), por lo que cada entorno mantiene su propia configuración.
+
+### ⏱️ Tiempo de espera antes de capturar (`SCENARIO_DELAY`)
+
+Algunas páginas tardan en terminar de cargar (animaciones, lazy-load de imágenes, contenido que llega por JS) y una captura tomada demasiado pronto genera falsos positivos en el reporte. La variable `SCENARIO_DELAY` (en milisegundos, default `5000`; `1000` en modo Diseño) controla cuánto espera BackstopJS antes de sacar la foto:
+
+*   Para el proyecto principal: editala en la pestaña **Configuración**, o por corrida puntual en el campo "Espera antes de capturar" de la pestaña **Generar**.
+*   Para cada proyecto adicional: cada uno tiene su propio campo de espera en su panel de **Proyectos**, independiente del resto — así una página lenta puede tener más margen que una rápida sin afectar a las demás.
+*   Por línea de comandos: `SCENARIO_DELAY=8000 npm run generate-sitemap`.
+
+Este valor es el *default* de todos los escenarios generados automáticamente; también podés ajustar el `delay` de un escenario puntual a mano desde su formulario de edición.
 
 ---
 

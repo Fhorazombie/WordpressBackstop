@@ -12,6 +12,14 @@ const MAX_RUNS_KEPT = 100;
 // recién finalizadas, para poder transmitir el log por SSE.
 const activeRuns = new Map();
 
+// backstop.json y backstop_data/engine_scripts son compartidos por TODOS los
+// pipelines (proyecto principal y proyectos adicionales por igual). Sólo puede
+// haber una corrida tocando ese estado a la vez, así que todo pasa por esta
+// cola global — evita que dos generaciones/ejecuciones concurrentes se pisen
+// entre sí escribiendo el mismo backstop.json.
+let queue = Promise.resolve();
+let queueDepth = 0;
+
 fs.mkdirSync(RUNS_DIR, { recursive: true });
 
 function binPath(name) {
@@ -29,6 +37,10 @@ const STEP_COMMANDS = {
     command: process.execPath,
     args: [path.join(SCRIPTS_DIR, 'generate-from-list.js')]
   }),
+  'generate-design': () => ({
+    command: process.execPath,
+    args: [path.join(SCRIPTS_DIR, 'generate-from-design.js')]
+  }),
   reference: () => ({ command: binPath('backstop'), args: ['reference'] }),
   test: () => ({ command: binPath('backstop'), args: ['test'] }),
   approve: () => ({ command: binPath('backstop'), args: ['approve'] })
@@ -37,6 +49,7 @@ const STEP_COMMANDS = {
 const STEP_LABELS = {
   'generate-sitemap': 'Generar escenarios desde sitemap',
   'generate-list': 'Generar escenarios desde lista de URLs',
+  'generate-design': 'Generar comparación diseño vs. live',
   reference: 'Crear referencias (baseline)',
   test: 'Ejecutar pruebas visuales',
   approve: 'Aprobar cambios detectados'
@@ -138,7 +151,7 @@ function startPipeline({ steps, envOverrides = {}, label, scheduleId = null }) {
     label: label || steps.map(s => STEP_LABELS[s] || s).join(' → '),
     steps,
     scheduleId,
-    status: 'running',
+    status: 'queued',
     startedAt: new Date().toISOString(),
     finishedAt: null,
     exitCode: null
@@ -156,7 +169,15 @@ function startPipeline({ steps, envOverrides = {}, label, scheduleId = null }) {
 
   const env = { ...process.env, ...envOverrides };
 
-  (async () => {
+  if (queueDepth > 0) {
+    emitter.emit('log', '⏳ En cola: esperando a que termine otra ejecución en curso...\n');
+  }
+  queueDepth += 1;
+
+  queue = queue.then(async () => {
+    run.status = 'running';
+    upsertIndex(run);
+
     let finalCode = 0;
     for (const step of steps) {
       const code = await runStep(step, env, emitter);
@@ -177,7 +198,8 @@ function startPipeline({ steps, envOverrides = {}, label, scheduleId = null }) {
     // Deja el emitter disponible un momento para que los streams SSE conectados
     // reciban el evento 'end', luego lo libera de memoria.
     setTimeout(() => activeRuns.delete(id), 5000);
-  })();
+    queueDepth -= 1;
+  });
 
   return { id, run };
 }
