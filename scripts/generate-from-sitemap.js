@@ -28,6 +28,18 @@ const SCRIPTS_DIR = process.env.BACKSTOP_SCRIPTS_DIR || 'backstop_data/engine_sc
 const MAX_URLS = process.env.MAX_URLS ? parseInt(process.env.MAX_URLS) : null; // Límite opcional
 const TIMEOUT = process.env.TIMEOUT ? parseInt(process.env.TIMEOUT) : 30000; // Timeout en ms
 
+// Tiempo de espera antes de capturar cada página (ms). Subilo para sitios
+// con animaciones, lazy-load o contenido que tarda en renderizar.
+const SCENARIO_DELAY = process.env.SCENARIO_DELAY ? parseInt(process.env.SCENARIO_DELAY) : 5000;
+
+// Selectores a aplicar en TODOS los escenarios generados (headers, banners
+// de cookies, widgets de chat, etc. que se repiten en todo el sitio).
+// SCENARIO_HIDE = visibility:hidden (oculta, pero reserva su espacio).
+// SCENARIO_REMOVE = display:none (lo saca del flujo, el contenido de abajo sube).
+const splitEnvSelectors = value => (value ? value.split(',').map(s => s.trim()).filter(Boolean) : []);
+const SCENARIO_HIDE_SELECTORS = splitEnvSelectors(process.env.SCENARIO_HIDE);
+const SCENARIO_REMOVE_SELECTORS = splitEnvSelectors(process.env.SCENARIO_REMOVE);
+
 const SITEMAP = process.env.SITEMAP == '0' ? false : true;
 const PUPPET = process.env.PUPPET == '0' ? false : true;
 
@@ -765,7 +777,9 @@ function generateScenarios(urls) {
       url,
       referenceUrl: "",
       readySelector: "body",
-      delay: 5000,
+      delay: SCENARIO_DELAY,
+      hideSelectors: SCENARIO_HIDE_SELECTORS,
+      removeSelectors: SCENARIO_REMOVE_SELECTORS,
       selectors: [],
       misMatchThreshold: 0.1,
       requireSameDimensions: true
@@ -811,6 +825,11 @@ function getBaseConfig() {
     engineOptions: {
       args: ["--no-sandbox"]
     },
+    // Recorre la página antes de capturar, para disparar contenido con
+    // lazy-load (imágenes, secciones con IntersectionObserver, etc.) que
+    // de otra forma queda en blanco aunque el "delay" sea muy alto.
+    // Ver backstop_data/engine_scripts/onReady.js
+    onReadyScript: "onReady.js",
     asyncCaptureLimit: 5,
     asyncCompareLimit: 50,
     debug: false,

@@ -82,6 +82,28 @@ El script intenta detectar automáticamente entornos locales (`.test`, `localhos
     ```
 *   Asegúrate de que `backstop.json` tenga la opción `ignoreHTTPSErrors: true` en `engineOptions` (aunque Puppeteer suele manejar esto con `--no-sandbox` y flags adicionales).
 
+### Secciones en blanco en la captura (contenido con lazy-load)
+
+**Síntoma:**
+La captura muestra el header y el footer correctamente, pero hay franjas en blanco donde debería haber imágenes, sliders, videos u otras secciones — y subir `SCENARIO_DELAY`/`delay` no lo soluciona, por más alto que lo pongas.
+
+**Causa:**
+Ese contenido usa *lazy-load* (imágenes `loading="lazy"`, `IntersectionObserver`, plugins de lazy-load de WordPress, sliders, embeds, etc.) que sólo se dispara cuando el elemento entra en pantalla al hacer scroll. El `delay` únicamente espera un tiempo fijo — no simula que alguien scrollea la página — así que ese contenido nunca llega a cargar antes de la captura.
+
+**Solución:**
+Desde esta versión, `backstop.json` incluye por defecto `onReadyScript: "onReady.js"`, que apunta a `backstop_data/engine_scripts/onReady.js`: un script que recorre toda la página antes de capturar (disparando el lazy-load real), espera a que las imágenes disparadas terminen de cargar de verdad (no una pausa fija) y vuelve arriba antes de la foto. Si tu proyecto fue generado con una versión anterior y no lo tiene, simplemente volvé a generar los escenarios (`npm run generate-sitemap` / `generate-list`, o el botón "Generar" del panel) para que se agregue automáticamente. Si necesitás ajustar el comportamiento del scroll (velocidad, tope de pasos), podés editar directamente `backstop_data/engine_scripts/onReady.js`.
+
+### El reporte sale "raro" (mismatch de dimensiones, contenido desalineado) sólo a veces
+
+**Síntoma:**
+La comparación entre Referencia y Prueba falla de forma intermitente — no siempre, y no por un cambio real en el sitio — con errores de `requireSameDimensions` o diferencias en zonas donde visualmente no cambió nada.
+
+**Causa:**
+Con contenido de carga diferida (lazy-load), la altura final de la página y el estado de cualquier animación (contadores, carruseles) dependen de *cuándo* terminan de cargar las imágenes recién disparadas por el scroll — y eso varía levemente según qué tan rápido responda la red en cada corrida. Si la Referencia se capturó con la página un poco más alta/baja que la Prueba, o con un contador congelado en un número distinto, el resultado parece "random" aunque el sitio esté idéntico.
+
+**Solución:**
+`onReady.js` ya maneja esto: en vez de una espera fija, espera explícitamente a que cada imagen dispare su evento `load` (o `error`) antes de seguir, tanto después de bajar como después de volver arriba — así la altura final es la misma sin importar cuánto tarde la red esa vez — y además congela todas las animaciones y transiciones CSS (`animation-duration: 0s`, `transition: none`) justo antes de la captura, para que un contador o carrusel siempre quede en el mismo cuadro final en vez de en un punto intermedio distinto cada vez.
+
 ## Problemas con Puppeteer Recordings
 
 ### El script de grabación falla al ejecutarse en BackstopJS

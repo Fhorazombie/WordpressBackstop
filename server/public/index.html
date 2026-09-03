@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BackstopJS Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <div class="bg-fx" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-icon">🧪</span>
+        <div>
+          <strong>BACKSTOP//UI</strong>
+          <div class="brand-sub">Panel de pruebas visuales</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-tab="dashboard"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></button>
+        <button class="nav-item" data-tab="scenarios"><span class="nav-icon">🧩</span><span class="nav-label">Escenarios</span></button>
+        <button class="nav-item" data-tab="projects"><span class="nav-icon">🗂️</span><span class="nav-label">Proyectos</span></button>
+        <button class="nav-item" data-tab="generate"><span class="nav-icon">⚙️</span><span class="nav-label">Generar</span></button>
+        <button class="nav-item" data-tab="urllists"><span class="nav-icon">📄</span><span class="nav-label">Listas de URLs</span></button>
+        <button class="nav-item" data-tab="schedules"><span class="nav-icon">⏰</span><span class="nav-label">Programación</span></button>
+        <button class="nav-item" data-tab="settings"><span class="nav-icon">🔧</span><span class="nav-label">Configuración</span></button>
+        <button class="nav-item" data-tab="history"><span class="nav-icon">🕘</span><span class="nav-label">Historial</span></button>
+      </nav>
+      <div class="status-line"><span class="status-dot"></span> SYSTEM ONLINE</div>
+      <div class="sidebar-footer">
+        <a href="/report/" target="_blank" rel="noopener">Ver último reporte ↗</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <!-- Dashboard -->
+      <section class="tab active" id="tab-dashboard">
+        <header class="tab-header">
+          <h1>Dashboard</h1>
+          <p>Estado general y acciones rápidas.</p>
+        </header>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="stat-scenarios">–</div>
+            <div class="stat-label">Escenarios configurados</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-viewports">–</div>
+            <div class="stat-label">Viewports</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-schedules">–</div>
+            <div class="stat-label">Schedules activos</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-projects">–</div>
+            <div class="stat-label">Proyectos adicionales</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-lastrun">–</div>
+            <div class="stat-label">Última corrida</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Acciones rápidas</h2>
+          <div class="quick-actions">
+            <button class="btn" data-quick="generate-sitemap">🗺️ Generar desde Sitemap</button>
+            <button class="btn" data-quick="generate-list">📋 Generar desde Lista</button>
+            <button class="btn btn-primary" data-quick="reference">📸 Crear Referencias</button>
+            <button class="btn btn-primary" data-quick="test">🔍 Ejecutar Pruebas</button>
+            <button class="btn btn-success" data-quick="approve">✅ Aprobar Cambios</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Corridas recientes</h2>
+          <div id="dashboard-runs" class="runs-list"></div>
+        </div>
+      </section>
+
+      <!-- Escenarios -->
+      <section class="tab" id="tab-scenarios">
+        <header class="tab-header">
+          <h1>Escenarios</h1>
+          <p>Gestiona los escenarios de prueba definidos en <code>backstop.json</code>.</p>
+        </header>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Viewports</h2>
+            <button class="btn btn-sm" id="btn-add-viewport">+ Viewport</button>
+          </div>
+          <table class="table" id="table-viewports">
+            <thead><tr><th>Label</th><th>Ancho</th><th>Alto</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <button class="btn btn-sm btn-primary" id="btn-save-viewports" style="margin-top:.75rem">Guardar viewports</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Escenarios (<span id="scenario-count">0</span>)</h2>
+            <button class="btn btn-primary btn-sm" id="btn-new-scenario">+ Nuevo escenario</button>
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="table-scenarios">
+              <thead>
+                <tr>
+                  <th>Label</th>
+                  <th>URL</th>
+                  <th>Delay</th>
+                  <th>Umbral</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Proyectos -->
+      <section class="tab" id="tab-projects">
+        <header class="tab-header">
+          <h1>Proyectos</h1>
+          <p>Páginas o sitios adicionales, cada uno con su propia carpeta de datos (<code>backstop_data/&lt;proyecto&gt;/</code>) y su propio modo de generación: sitemap, URL/lista o comparación de diseño.</p>
+        </header>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Proyectos (<span id="project-count">0</span>)</h2>
+            <button class="btn btn-primary btn-sm" id="btn-new-project">+ Nuevo proyecto</button>
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="table-projects">
+              <thead>
+                <tr><th>Nombre</th><th>Modo</th><th>Carpeta</th><th>Escenarios</th><th>Última generación</th><th></th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Generar -->
+      <section class="tab" id="tab-generate">
+        <header class="tab-header">
+          <h1>Generar escenarios</h1>
+          <p>Crea escenarios automáticamente desde un sitemap XML o desde una lista de URLs. Esto aplica al proyecto principal — para páginas adicionales aisladas usá la pestaña <strong>Proyectos</strong>.</p>
+        </header>
+
+        <div class="panel-grid">
+          <div class="panel">
+            <h2>🗺️ Desde Sitemap</h2>
+            <div class="field"><label>SITE_URL</label><input id="gen-site-url" placeholder="https://misitio.com" /></div>
+            <div class="field"><label>SITEMAP_URL (ruta)</label><input id="gen-sitemap-url" placeholder="/sitemap.xml" /></div>
+            <div class="field checkbox"><label><input type="checkbox" id="gen-sample-mode" /> Modo muestreo (sitios grandes)</label></div>
+            <div class="field-row">
+              <div class="field"><label>SAMPLE_SIZE</label><input id="gen-sample-size" type="number" min="1" /></div>
+              <div class="field"><label>MAX_URLS</label><input id="gen-max-urls" type="number" min="1" /></div>
+            </div>
+            <div class="field">
+              <label>Espera antes de capturar (ms)</label>
+              <input id="gen-delay" type="number" min="0" step="500" placeholder="5000" />
+              <p class="hint">Subilo si el sitio tarda en cargar (animaciones, lazy-load, etc.).</p>
+            </div>
+            <button class="btn btn-primary" id="btn-gen-sitemap">Generar desde Sitemap</button>
+          </div>
+
+          <div class="panel">
+            <h2>📋 Desde Lista de URLs</h2>
+            <div class="field">
+              <label>Archivo (url-lists/)</label>
+              <select id="gen-url-list"></select>
+            </div>
+            <p class="hint">Administra el contenido de las listas en la pestaña <strong>Listas de URLs</strong>.</p>
+            <div class="field">
+              <label>Espera antes de capturar (ms)</label>
+              <input id="gen-list-delay" type="number" min="0" step="500" placeholder="5000" />
+            </div>
+            <button class="btn btn-primary" id="btn-gen-list">Generar desde Lista</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- URL Lists -->
+      <section class="tab" id="tab-urllists">
+        <header class="tab-header">
+          <h1>Listas de URLs</h1>
+          <p>Archivos <code>.txt</code> / <code>.json</code> en <code>url-lists/</code> usados por la generación por lista.</p>
+        </header>
+
+        <div class="panel-grid panel-grid-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Archivos</h2>
+              <button class="btn btn-sm" id="btn-new-urllist">+ Nuevo</button>
+            </div>
+            <ul class="file-list" id="urllist-files"></ul>
+          </div>
+          <div class="panel">
+            <h2 id="urllist-current-name">Selecciona un archivo</h2>
+            <textarea id="urllist-content" rows="16" placeholder="https://misitio.com/&#10;https://misitio.com/pagina-2/" disabled></textarea>
+            <div class="actions-row">
+              <button class="btn btn-primary" id="btn-save-urllist" disabled>Guardar</button>
+              <button class="btn btn-danger" id="btn-delete-urllist" disabled>Eliminar</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Schedules -->
+      <section class="tab" id="tab-schedules">
+        <header class="tab-header">
+          <h1>Programación de pruebas</h1>
+          <p>Agenda ejecuciones automáticas usando expresiones cron.</p>
+        </header>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Schedules</h2>
+            <button class="btn btn-primary btn-sm" id="btn-new-schedule">+ Nuevo schedule</button>
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="table-schedules">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Proyecto</th>
+                  <th>Cron</th>
+                  <th>Pipeline</th>
+                  <th>Última corrida</th>
+                  <th>Estado</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section class="tab" id="tab-settings">
+        <header class="tab-header">
+          <h1>Configuración</h1>
+          <p>Edita las variables de entorno guardadas en <code>.env</code>.</p>
+        </header>
+
+        <div class="panel">
+          <div class="field-row">
+            <div class="field"><label>SITE_URL</label><input id="cfg-SITE_URL" /></div>
+            <div class="field"><label>SITEMAP_URL</label><input id="cfg-SITEMAP_URL" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field checkbox"><label><input type="checkbox" id="cfg-SITEMAP_SAMPLE_MODE" /> SITEMAP_SAMPLE_MODE</label></div>
+            <div class="field"><label>SAMPLE_SIZE</label><input id="cfg-SAMPLE_SIZE" type="number" /></div>
+            <div class="field"><label>MAX_URLS</label><input id="cfg-MAX_URLS" type="number" /></div>
+            <div class="field"><label>TIMEOUT (ms)</label><input id="cfg-TIMEOUT" type="number" /></div>
+            <div class="field"><label>SCENARIO_DELAY (ms)</label><input id="cfg-SCENARIO_DELAY" type="number" step="500" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>SCENARIO_HIDE (ocultar, separados por coma)</label><input id="cfg-SCENARIO_HIDE" placeholder=".cookie-banner, .chat" /></div>
+            <div class="field"><label>SCENARIO_REMOVE (quitar, separados por coma)</label><input id="cfg-SCENARIO_REMOVE" placeholder="header, .cookie-banner" /></div>
+          </div>
+          <p class="hint" style="margin-top:-.5rem">"Ocultar" (visibility:hidden) reserva el espacio del elemento; "Quitar" (display:none) lo saca del flujo y el contenido de abajo sube. Para un header sin clase/id, escribí directamente <code>header</code>.</p>
+          <div class="field-row">
+            <div class="field"><label>PROJECT_ID</label><input id="cfg-PROJECT_ID" /></div>
+            <div class="field"><label>BACKSTOP_DATA_DIR</label><input id="cfg-BACKSTOP_DATA_DIR" /></div>
+            <div class="field"><label>URL_LIST</label><input id="cfg-URL_LIST" /></div>
+          </div>
+          <div class="field"><label>REQUEST_HEADERS (JSON)</label><input id="cfg-REQUEST_HEADERS" placeholder='{"Authorization":"Bearer token"}' /></div>
+          <div class="field-row">
+            <div class="field checkbox"><label><input type="checkbox" id="cfg-REJECT_UNAUTHORIZED" /> REJECT_UNAUTHORIZED</label></div>
+            <div class="field checkbox"><label><input type="checkbox" id="cfg-DEBUG" /> DEBUG</label></div>
+          </div>
+          <button class="btn btn-primary" id="btn-save-settings">Guardar configuración</button>
+        </div>
+      </section>
+
+      <!-- History -->
+      <section class="tab" id="tab-history">
+        <header class="tab-header">
+          <h1>Historial de corridas</h1>
+          <p>Últimas ejecuciones (manuales y programadas).</p>
+        </header>
+        <div class="panel">
+          <div class="table-wrap">
+            <table class="table" id="table-history">
+              <thead>
+                <tr><th>Corrida</th><th>Inicio</th><th>Duración</th><th>Estado</th><th></th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal genérico (formularios) -->
+  <div class="modal-backdrop" id="modal-backdrop">
+    <div class="modal" id="modal">
+      <div class="modal-head">
+        <h3 id="modal-title">Título</h3>
+        <button class="modal-close" id="modal-close">✕</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Modal de log en vivo -->
+  <div class="modal-backdrop" id="log-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <h3 id="log-title">Ejecutando…</h3>
+        <span class="badge" id="log-status">en curso</span>
+        <button class="modal-close" id="log-close">✕</button>
+      </div>
+      <pre class="log-view" id="log-view"></pre>
+    </div>
+  </div>
+
+  <!-- Modal de detalle de proyecto -->
+  <div class="modal-backdrop" id="project-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <h3 id="project-modal-title">Proyecto</h3>
+        <span class="badge" id="project-modal-mode"></span>
+        <button class="modal-close" id="project-modal-close">✕</button>
+      </div>
+      <div class="modal-body" id="project-modal-body"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

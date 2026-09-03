@@ -153,6 +153,45 @@ npm run approve
 
 ---
 
+---
+
+## 🖥️ Panel Visual (Dashboard)
+
+Además del flujo por línea de comandos, el proyecto incluye una interfaz web para gestionar y programar las pruebas sin tocar la terminal.
+
+```bash
+npm run ui
+```
+
+Esto levanta un servidor local (por defecto en `http://localhost:4780`, configurable con `UI_PORT`) con:
+
+*   **Dashboard**: contadores rápidos (escenarios, viewports, schedules activos, proyectos adicionales, última corrida) y botones de acción rápida (generar, crear referencias, ejecutar pruebas, aprobar cambios), cada uno con el log en vivo de la ejecución.
+*   **Escenarios**: alta, edición y borrado de escenarios del proyecto principal (`backstop.json`) — URL, selectores a ocultar/remover, umbral de comparación, tiempo de espera antes de capturar, etc. — y gestión de sus viewports, sin necesidad de regenerar desde sitemap/lista.
+*   **Proyectos**: páginas o sitios *adicionales*, cada uno con su propia carpeta aislada (`backstop_data/<proyecto>/`) y su propio modo de generación — **Sitemap** (crawl completo), **URL/Lista** (una o varias URLs puntuales) o **Diseño vs. Live** (comparar una imagen exportada de Figma contra la URL real, con subida de imagen incluida). Cada proyecto tiene su propia configuración, sus propios escenarios y viewports, y sus propias acciones (Generar / Crear Referencias / Ejecutar Pruebas / Aprobar Cambios / Ver reporte) — completamente independiente del proyecto principal y del resto de los proyectos.
+*   **Generar**: dispara `generate-from-sitemap` o `generate-from-list` para el proyecto principal desde el navegador, con los mismos parámetros que las variables de entorno (`SITE_URL`, `SITEMAP_URL`, muestreo, límites, tiempo de espera), mostrando el progreso en tiempo real.
+*   **Listas de URLs**: crear, editar y borrar los archivos de `url-lists/` directamente desde la UI.
+*   **Programación**: crear *schedules* con expresión cron (con atajos comunes) que ejecutan un pipeline configurable, para el proyecto principal o para cualquier proyecto adicional — por ejemplo "generar desde sitemap → crear referencias" cada noche, o "ejecutar pruebas" cada hora — con historial de la última corrida, ejecución manual ("Ejecutar ahora") y activar/pausar sin perder la configuración.
+*   **Configuración**: editor de las variables principales del archivo `.env`, incluyendo `SCENARIO_DELAY` (ver abajo).
+*   **Historial**: registro de todas las corridas (manuales y programadas, de cualquier proyecto) con su log completo.
+
+Todas las corridas —del proyecto principal o de cualquier proyecto adicional— comparten el mismo `backstop.json` de la raíz y la misma instancia de BackstopJS, así que el panel las ejecuta en fila (una por vez) automáticamente para que nunca se pisen entre sí; si disparás varias a la vez, las siguientes quedan "en cola" y arrancan apenas termina la anterior.
+
+Los datos de esta interfaz (historial de corridas, schedules y proyectos adicionales) se guardan en `data/` (ignorado por git, igual que `.env`), por lo que cada entorno mantiene su propia configuración.
+
+### ⏱️ Tiempo de espera antes de capturar (`SCENARIO_DELAY`)
+
+Algunas páginas tardan en terminar de cargar (animaciones, lazy-load de imágenes, contenido que llega por JS) y una captura tomada demasiado pronto genera falsos positivos en el reporte. La variable `SCENARIO_DELAY` (en milisegundos, default `5000`; `1000` en modo Diseño) controla cuánto espera BackstopJS antes de sacar la foto:
+
+*   Para el proyecto principal: editala en la pestaña **Configuración**, o por corrida puntual en el campo "Espera antes de capturar" de la pestaña **Generar**.
+*   Para cada proyecto adicional: cada uno tiene su propio campo de espera en su panel de **Proyectos**, independiente del resto — así una página lenta puede tener más margen que una rápida sin afectar a las demás.
+*   Por línea de comandos: `SCENARIO_DELAY=8000 npm run generate-sitemap`.
+
+Este valor es el *default* de todos los escenarios generados automáticamente; también podés ajustar el `delay` de un escenario puntual a mano desde su formulario de edición.
+
+> **Importante — `SCENARIO_DELAY` no alcanza para contenido con lazy-load.** Si tu página tiene secciones que sólo cargan cuando el usuario hace scroll (imágenes `loading="lazy"`, animaciones por IntersectionObserver, plugins de lazy-load de WordPress, sliders, videos incrustados a mitad de página, etc.), esas partes van a aparecer **en blanco** en la captura sin importar cuánto subas el delay — el delay sólo espera, no simula que alguien scrollea la página, y BackstopJS por sí solo nunca la scrollea. Por eso el proyecto trae `backstop_data/engine_scripts/onReady.js`: un script que recorre toda la página de arriba a abajo (disparando ese contenido, como haría una persona real) y vuelve al tope antes de capturar. Se activa automáticamente en todo escenario nuevo desde esta versión. Si ya tenías proyectos generados con una versión anterior, simplemente volvé a **Generar** (o corré `npm run generate-sitemap` / `generate-list` de nuevo) para que tomen el fix — no hace falta tocar nada más.
+
+---
+
 ## 📚 Documentación Detallada
 
 Para profundizar en cada aspecto del proyecto, consulta los siguientes documentos:
@@ -163,6 +202,7 @@ Para profundizar en cada aspecto del proyecto, consulta los siguientes documento
 *   [**04. Guía de Uso**](docs/04-usage.md): Explicación detallada de todos los comandos y flujos.
 *   [**05. Solución de Problemas**](docs/05-troubleshooting.md): Errores comunes y cómo resolverlos.
 *   [**06. Configuración Avanzada**](docs/06-advanced.md): Personalización de Puppeteer y escenarios complejos.
+*   [**07. Panel Visual (Dashboard)**](docs/07-dashboard.md): Referencia completa del panel web — proyectos múltiples aislados, programación, ocultar/quitar selectores y todas las variables de entorno que trajo.
 
 ---
 
