@@ -42,6 +42,20 @@
     return d.toLocaleString();
   }
 
+  function fmtRelative(iso) {
+    if (!iso) return 'Sin corridas';
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const s = Math.round(diffMs / 1000);
+    if (s < 5) return 'ahora mismo';
+    if (s < 60) return `hace ${s}s`;
+    const m = Math.round(s / 60);
+    if (m < 60) return `hace ${m} min`;
+    const h = Math.round(m / 60);
+    if (h < 24) return `hace ${h} h`;
+    const days = Math.round(h / 24);
+    return `hace ${days} d`;
+  }
+
   function fmtDuration(startIso, endIso) {
     if (!startIso) return '–';
     if (!endIso) return 'en curso…';
@@ -104,11 +118,18 @@
   document.getElementById('log-close').addEventListener('click', closeLogModal);
   logBackdrop.addEventListener('click', e => { if (e.target === logBackdrop) closeLogModal(); });
 
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (logBackdrop.classList.contains('open')) closeLogModal();
+    else if (modalBackdrop.classList.contains('open')) closeModal();
+  });
+
   function openLogModal(runId, title, onFinish) {
     logTitle.textContent = title || `Corrida ${runId}`;
     logStatus.textContent = 'en curso';
     logStatus.className = 'badge running';
     logView.textContent = '';
+    logView.classList.add('is-running');
     logBackdrop.classList.add('open');
 
     if (currentEventSource) currentEventSource.close();
@@ -127,6 +148,7 @@
         logStatus.textContent = STATUS_LABELS[run.status] || run.status;
         logStatus.className = `badge ${run.status}`;
       }
+      logView.classList.remove('is-running');
       es.close();
       if (onFinish) onFinish(run);
     });
@@ -134,6 +156,7 @@
     es.onerror = () => {
       // El servidor cierra el stream normalmente vía 'end'; un error real
       // deja el badge como estaba para no confundir al usuario con "en curso".
+      logView.classList.remove('is-running');
       es.close();
     };
   }
@@ -174,7 +197,9 @@
       document.getElementById('stat-scenarios').textContent = scenarios.length;
       document.getElementById('stat-viewports').textContent = viewports.length;
       document.getElementById('stat-schedules').textContent = schedules.filter(s => s.enabled).length;
-      document.getElementById('stat-lastrun').textContent = runs[0] ? fmtDate(runs[0].startedAt) : 'Sin corridas';
+      const lastRunEl = document.getElementById('stat-lastrun');
+      lastRunEl.textContent = runs[0] ? fmtRelative(runs[0].startedAt) : 'Sin corridas';
+      lastRunEl.title = runs[0] ? fmtDate(runs[0].startedAt) : '';
 
       const list = document.getElementById('dashboard-runs');
       list.innerHTML = '';

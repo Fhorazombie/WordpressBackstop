@@ -4,27 +4,33 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BackstopJS Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/app.css" />
 </head>
 <body>
+  <div class="bg-fx" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
   <div class="layout">
     <aside class="sidebar">
       <div class="brand">
         <span class="brand-icon">🧪</span>
         <div>
-          <strong>BackstopJS</strong>
+          <strong>BACKSTOP//UI</strong>
           <div class="brand-sub">Panel de pruebas visuales</div>
         </div>
       </div>
       <nav class="nav">
-        <button class="nav-item active" data-tab="dashboard">📊 Dashboard</button>
-        <button class="nav-item" data-tab="scenarios">🧩 Escenarios</button>
-        <button class="nav-item" data-tab="generate">⚙️ Generar</button>
-        <button class="nav-item" data-tab="urllists">📄 Listas de URLs</button>
-        <button class="nav-item" data-tab="schedules">⏰ Programación</button>
-        <button class="nav-item" data-tab="settings">🔧 Configuración</button>
-        <button class="nav-item" data-tab="history">🕘 Historial</button>
+        <button class="nav-item active" data-tab="dashboard"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></button>
+        <button class="nav-item" data-tab="scenarios"><span class="nav-icon">🧩</span><span class="nav-label">Escenarios</span></button>
+        <button class="nav-item" data-tab="generate"><span class="nav-icon">⚙️</span><span class="nav-label">Generar</span></button>
+        <button class="nav-item" data-tab="urllists"><span class="nav-icon">📄</span><span class="nav-label">Listas de URLs</span></button>
+        <button class="nav-item" data-tab="schedules"><span class="nav-icon">⏰</span><span class="nav-label">Programación</span></button>
+        <button class="nav-item" data-tab="settings"><span class="nav-icon">🔧</span><span class="nav-label">Configuración</span></button>
+        <button class="nav-item" data-tab="history"><span class="nav-icon">🕘</span><span class="nav-label">Historial</span></button>
       </nav>
+      <div class="status-line"><span class="status-dot"></span> SYSTEM ONLINE</div>
       <div class="sidebar-footer">
         <a href="/report/" target="_blank" rel="noopener">Ver último reporte ↗</a>
       </div>
