@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.get('/scenarios', (req, res) => {
   try {
-    const config = backstopConfig.readConfig();
+    const config = backstopConfig.readDefaultConfig();
     res.json({ scenarios: config.scenarios || [], viewports: config.viewports || [] });
   } catch (error) {
     res.status(500).json({ error: error.message });

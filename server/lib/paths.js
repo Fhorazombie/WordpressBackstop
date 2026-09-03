@@ -13,6 +13,7 @@ module.exports = {
   SCHEDULES_FILE: path.join(ROOT, 'data', 'schedules.json'),
   RUNS_INDEX_FILE: path.join(ROOT, 'data', 'runs.json'),
   PROJECTS_FILE: path.join(ROOT, 'data', 'projects.json'),
+  DEFAULT_PROJECT_FILE: path.join(ROOT, 'data', 'default-project.json'),
   UPLOADS_DIR: path.join(ROOT, 'data', 'uploads'),
   BACKSTOP_DATA_ROOT: path.join(ROOT, 'backstop_data'),
   BIN_DIR: path.join(ROOT, 'node_modules', '.bin')

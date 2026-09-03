@@ -173,14 +173,14 @@ function setViewports(id, viewports) {
 
 function syncToDisk(id) {
   const project = get(id);
-  backstopConfig.writeConfig(project.config || backstopConfig.emptyConfig());
+  backstopConfig.writeRootConfig(project.config || backstopConfig.emptyConfig());
 }
 
 function syncFromDisk(id) {
   const all = readAll();
   const idx = all.findIndex(p => p.id === id);
   if (idx === -1) throw new Error(`No se encontró el proyecto "${id}".`);
-  const config = backstopConfig.readConfig();
+  const config = backstopConfig.readRootConfig();
   all[idx].config = config;
   all[idx].updatedAt = new Date().toISOString();
   all[idx].lastGeneratedAt = new Date().toISOString();

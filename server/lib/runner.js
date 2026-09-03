@@ -133,7 +133,7 @@ function runStep(step, env, emitter) {
  * Lanza un pipeline (secuencia de pasos) de forma asíncrona.
  * Devuelve inmediatamente el id de la corrida; el trabajo continúa en segundo plano.
  */
-function startPipeline({ steps, envOverrides = {}, label, scheduleId = null }) {
+function startPipeline({ steps, envOverrides = {}, label, scheduleId = null, beforeStart = null }) {
   const invalid = steps.filter(s => !isValidStep(s));
   if (invalid.length > 0) {
     throw new Error(`Pasos inválidos: ${invalid.join(', ')}`);
@@ -175,6 +175,28 @@ function startPipeline({ steps, envOverrides = {}, label, scheduleId = null }) {
   queueDepth += 1;
 
   queue = queue.then(async () => {
+    // Se ejecuta recién cuando le toca el turno en la cola (no al encolar),
+    // para que cualquier preparación que toque el estado compartido
+    // (activar la config de un proyecto en backstop.json, por ejemplo) no
+    // pise una corrida anterior que todavía esté en curso.
+    if (beforeStart) {
+      try {
+        await beforeStart();
+      } catch (error) {
+        emitter.emit('log', `\n[error] ${error.message}\n`);
+        run.status = 'failed';
+        run.exitCode = 1;
+        run.finishedAt = new Date().toISOString();
+        upsertIndex(run);
+        emitter.emit('end', run);
+        const active = activeRuns.get(id);
+        if (active) active.done = true;
+        setTimeout(() => activeRuns.delete(id), 5000);
+        queueDepth -= 1;
+        return;
+      }
+    }
+
     run.status = 'running';
     upsertIndex(run);
 

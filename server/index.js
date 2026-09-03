@@ -33,7 +33,7 @@ app.use('/api', projectsRoutes);
 // Sirve el último reporte HTML generado por BackstopJS (rutas resueltas
 // dinámicamente por si el usuario cambia BACKSTOP_DATA_DIR/PROJECT_ID).
 app.use('/report', (req, res, next) => {
-  const config = backstopConfig.readConfig();
+  const config = backstopConfig.readDefaultConfig();
   const reportDir = config.paths && config.paths.html_report
     ? path.join(ROOT, config.paths.html_report)
     : path.join(ROOT, 'backstop_data', 'html_report');

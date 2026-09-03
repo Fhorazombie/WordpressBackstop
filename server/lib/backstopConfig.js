@@ -1,20 +1,25 @@
 const fs = require('fs');
-const { BACKSTOP_JSON } = require('./paths');
+const path = require('path');
+const { BACKSTOP_JSON, DEFAULT_PROJECT_FILE, PROJECTS_FILE } = require('./paths');
 const { getBaseConfig } = require('../../scripts/lib/utils');
 
-/**
- * Lee backstop.json. Si no existe, genera una configuración base vacía
- * (sin escenarios) usando la misma lógica que los scripts de generación.
- */
-function readConfig() {
+/* ------------------------------------------------------------------------
+ * backstop.json (raíz): el archivo de trabajo que lee/escribe directamente
+ * el CLI de BackstopJS. El proyecto principal Y cada proyecto adicional lo
+ * usan por turnos como "área de staging" para invocar los scripts —  nunca
+ * hay que asumir que su contenido en un instante dado pertenece a un
+ * proyecto en particular; para eso existe el almacenamiento persistente de
+ * cada uno (más abajo, y project.config en server/lib/projects.js).
+ * ------------------------------------------------------------------------ */
+
+function readRootConfig() {
   if (fs.existsSync(BACKSTOP_JSON)) {
-    const raw = fs.readFileSync(BACKSTOP_JSON, 'utf8');
-    return JSON.parse(raw);
+    return JSON.parse(fs.readFileSync(BACKSTOP_JSON, 'utf8'));
   }
   return emptyConfig();
 }
 
-function writeConfig(config) {
+function writeRootConfig(config) {
   fs.writeFileSync(BACKSTOP_JSON, JSON.stringify(config, null, 2), 'utf8');
 }
 
@@ -22,6 +27,48 @@ function writeConfig(config) {
 function emptyConfig() {
   const base = getBaseConfig();
   return { ...base, scenarios: [] };
+}
+
+/* ------------------------------------------------------------------------
+ * Almacenamiento persistente del proyecto principal — independiente del
+ * backstop.json de la raíz, igual que project.config lo es para cada
+ * proyecto adicional. Así, editar un escenario del proyecto principal (o
+ * generar sus scenarios) nunca se pierde ni se mezcla con lo que haya
+ * quedado en la raíz por la última corrida de otro proyecto.
+ * ------------------------------------------------------------------------ */
+
+function readDefaultConfig() {
+  if (fs.existsSync(DEFAULT_PROJECT_FILE)) {
+    return JSON.parse(fs.readFileSync(DEFAULT_PROJECT_FILE, 'utf8'));
+  }
+  // Migración: sólo adoptamos un backstop.json preexistente como punto de
+  // partida si el sistema de proyectos múltiples nunca se usó (no existe
+  // data/projects.json). Si ya existe, el backstop.json de la raíz puede
+  // ser perfectamente el "área de staging" que dejó la última corrida de
+  // OTRO proyecto — adoptarlo igual mezclaría ese proyecto con el principal.
+  if (!fs.existsSync(PROJECTS_FILE) && fs.existsSync(BACKSTOP_JSON)) {
+    const migrated = readRootConfig();
+    writeDefaultConfig(migrated);
+    return migrated;
+  }
+  return emptyConfig();
+}
+
+function writeDefaultConfig(config) {
+  fs.mkdirSync(path.dirname(DEFAULT_PROJECT_FILE), { recursive: true });
+  fs.writeFileSync(DEFAULT_PROJECT_FILE, JSON.stringify(config, null, 2), 'utf8');
+}
+
+/** "Activa" la config guardada del proyecto principal en backstop.json, para que el CLI la use. */
+function syncDefaultToDisk() {
+  writeRootConfig(readDefaultConfig());
+}
+
+/** Vuelca lo que haya en backstop.json (recién generado) al almacenamiento persistente. */
+function syncDefaultFromDisk() {
+  const config = readRootConfig();
+  writeDefaultConfig(config);
+  return config;
 }
 
 function findScenarioIndex(config, label) {
@@ -57,8 +104,8 @@ function normalizeScenario(scenario) {
 /* ------------------------------------------------------------------------
  * Funciones puras: operan sobre un objeto `config` en memoria (mutándolo y
  * devolviéndolo) sin tocar el filesystem. Las reutilizan tanto el proyecto
- * "principal" (backstop.json en la raíz, más abajo) como los proyectos
- * adicionales gestionados por server/lib/projects.js.
+ * principal (más abajo) como los proyectos adicionales gestionados por
+ * server/lib/projects.js.
  * ------------------------------------------------------------------------ */
 
 function addScenarioToConfig(config, scenario) {
@@ -119,51 +166,55 @@ function setViewportsInConfig(config, viewports) {
 }
 
 /* ------------------------------------------------------------------------
- * Wrappers para el proyecto "principal": leen/escriben directamente el
- * backstop.json de la raíz del repo (comportamiento histórico, sin cambios).
+ * Wrappers para el proyecto principal: leen/escriben su almacenamiento
+ * persistente (no el backstop.json de la raíz, que es compartido).
  * ------------------------------------------------------------------------ */
 
 function listScenarios() {
-  const config = readConfig();
+  const config = readDefaultConfig();
   return config.scenarios || [];
 }
 
 function addScenario(scenario) {
-  const config = readConfig();
+  const config = readDefaultConfig();
   addScenarioToConfig(config, scenario);
-  writeConfig(config);
+  writeDefaultConfig(config);
   return config.scenarios;
 }
 
 function updateScenario(label, updates) {
-  const config = readConfig();
+  const config = readDefaultConfig();
   updateScenarioInConfig(config, label, updates);
-  writeConfig(config);
+  writeDefaultConfig(config);
   return config.scenarios;
 }
 
 function deleteScenario(label) {
-  const config = readConfig();
+  const config = readDefaultConfig();
   deleteScenarioFromConfig(config, label);
-  writeConfig(config);
+  writeDefaultConfig(config);
   return config.scenarios;
 }
 
 function getViewports() {
-  const config = readConfig();
+  const config = readDefaultConfig();
   return config.viewports || [];
 }
 
 function setViewports(viewports) {
-  const config = readConfig();
+  const config = readDefaultConfig();
   setViewportsInConfig(config, viewports);
-  writeConfig(config);
+  writeDefaultConfig(config);
   return config.viewports;
 }
 
 module.exports = {
-  readConfig,
-  writeConfig,
+  readRootConfig,
+  writeRootConfig,
+  readDefaultConfig,
+  writeDefaultConfig,
+  syncDefaultToDisk,
+  syncDefaultFromDisk,
   emptyConfig,
   normalizeScenario,
   addScenarioToConfig,

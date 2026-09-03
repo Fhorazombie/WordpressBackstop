@@ -5,6 +5,7 @@ const { SCHEDULES_FILE } = require('./paths');
 const runner = require('./runner');
 const projects = require('./projects');
 const projectRunner = require('./projectRunner');
+const backstopConfig = require('./backstopConfig');
 
 const tasks = new Map();
 
@@ -28,12 +29,26 @@ function fire(schedule) {
       scheduleId: schedule.id
     });
   } else {
+    const hasGenerateStep = schedule.steps.some(step => step.startsWith('generate'));
     ({ run } = runner.startPipeline({
       steps: schedule.steps,
       envOverrides: schedule.envOverrides || {},
       label: `[Agendado] ${schedule.name}`,
-      scheduleId: schedule.id
+      scheduleId: schedule.id,
+      beforeStart: () => backstopConfig.syncDefaultToDisk()
     }));
+
+    if (hasGenerateStep) {
+      runner.subscribe(run.id, () => {}, finished => {
+        if (finished && finished.status === 'success') {
+          try {
+            backstopConfig.syncDefaultFromDisk();
+          } catch (error) {
+            console.warn(`No se pudo sincronizar el proyecto principal tras generar: ${error.message}`);
+          }
+        }
+      });
+    }
   }
 
   const schedules = readSchedules();
