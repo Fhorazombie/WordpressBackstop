@@ -109,6 +109,14 @@ function generateScenarios(urls) {
   // con animaciones, lazy-load o contenido que tarda en renderizar.
   const DELAY = process.env.SCENARIO_DELAY ? parseInt(process.env.SCENARIO_DELAY, 10) : 5000;
 
+  // Selectores a aplicar en TODOS los escenarios generados (headers, banners
+  // de cookies, widgets de chat, etc. que se repiten en todo el sitio).
+  // SCENARIO_HIDE = visibility:hidden (oculta, pero reserva su espacio).
+  // SCENARIO_REMOVE = display:none (lo saca del flujo, el contenido de abajo sube).
+  const splitSelectors = value => (value ? value.split(',').map(s => s.trim()).filter(Boolean) : []);
+  const HIDE_SELECTORS = splitSelectors(process.env.SCENARIO_HIDE);
+  const REMOVE_SELECTORS = splitSelectors(process.env.SCENARIO_REMOVE);
+
   return urls.map(url => {
     const labelBase = generateLabel(url);
     // Generar hash corto para unicidad y evitar nombres de archivo largos
@@ -130,6 +138,8 @@ function generateScenarios(urls) {
       referenceUrl: "",
       readySelector: "body",
       delay: DELAY,
+      hideSelectors: HIDE_SELECTORS,
+      removeSelectors: REMOVE_SELECTORS,
       selectors: [],
       misMatchThreshold: 0.1,
       requireSameDimensions: true

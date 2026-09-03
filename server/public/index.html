@@ -267,6 +267,11 @@
             <div class="field"><label>SCENARIO_DELAY (ms)</label><input id="cfg-SCENARIO_DELAY" type="number" step="500" /></div>
           </div>
           <div class="field-row">
+            <div class="field"><label>SCENARIO_HIDE (ocultar, separados por coma)</label><input id="cfg-SCENARIO_HIDE" placeholder=".cookie-banner, .chat" /></div>
+            <div class="field"><label>SCENARIO_REMOVE (quitar, separados por coma)</label><input id="cfg-SCENARIO_REMOVE" placeholder="header, .cookie-banner" /></div>
+          </div>
+          <p class="hint" style="margin-top:-.5rem">"Ocultar" (visibility:hidden) reserva el espacio del elemento; "Quitar" (display:none) lo saca del flujo y el contenido de abajo sube. Para un header sin clase/id, escribí directamente <code>header</code>.</p>
+          <div class="field-row">
             <div class="field"><label>PROJECT_ID</label><input id="cfg-PROJECT_ID" /></div>
             <div class="field"><label>BACKSTOP_DATA_DIR</label><input id="cfg-BACKSTOP_DATA_DIR" /></div>
             <div class="field"><label>URL_LIST</label><input id="cfg-URL_LIST" /></div>

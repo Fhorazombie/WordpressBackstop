@@ -202,6 +202,7 @@ Para profundizar en cada aspecto del proyecto, consulta los siguientes documento
 *   [**04. Guía de Uso**](docs/04-usage.md): Explicación detallada de todos los comandos y flujos.
 *   [**05. Solución de Problemas**](docs/05-troubleshooting.md): Errores comunes y cómo resolverlos.
 *   [**06. Configuración Avanzada**](docs/06-advanced.md): Personalización de Puppeteer y escenarios complejos.
+*   [**07. Panel Visual (Dashboard)**](docs/07-dashboard.md): Referencia completa del panel web — proyectos múltiples aislados, programación, ocultar/quitar selectores y todas las variables de entorno que trajo.
 
 ---
 

@@ -61,7 +61,8 @@ DESIGN_URL=https://misite.com         # URL a comparar (o usa SITE_URL)
 ```bash
 DESIGN_LABEL=Homepage                 # Nombre del escenario en el reporte
 DESIGN_THRESHOLD=0.1                  # Tolerancia de diferencia en % (default: 0.1)
-DESIGN_HIDE=.cookie-banner,.chat      # Selectores CSS a ocultar (separados por coma)
+DESIGN_HIDE=.cookie-banner,.chat      # Selectores a OCULTAR (visibility:hidden, reserva su espacio)
+DESIGN_REMOVE=header,.cookie-banner   # Selectores a QUITAR (display:none, el contenido de abajo sube)
 DESIGN_VIEWPORT_HEIGHT=900            # Alto del viewport (default: 900px)
 ```
 

@@ -14,6 +14,8 @@ Puedes configurar el comportamiento del generador pasando variables de entorno a
 | `MAX_URLS` | Límite máximo de URLs a procesar del sitemap. Útil para pruebas rápidas. | `null` (sin límite) |
 | `TIMEOUT` | Tiempo de espera máximo (en ms) para descargar el sitemap. | `30000` (30s) |
 | `SCENARIO_DELAY` | Tiempo de espera (en ms) antes de capturar cada página, una vez cargada. Súbelo para sitios con animaciones, lazy-load o contenido que tarda en renderizar. | `5000` (`1000` en modo Diseño) |
+| `SCENARIO_HIDE` | Selectores CSS (separados por coma) a **ocultar** en todos los escenarios generados. Usa `visibility: hidden` — el elemento desaparece pero su espacio queda reservado (un hueco en blanco). | N/A |
+| `SCENARIO_REMOVE` | Selectores CSS (separados por coma) a **quitar** en todos los escenarios generados. Usa `display: none` — el elemento sale del flujo del documento y el contenido de abajo sube a ocupar su lugar. Para un elemento sin clase ni id alcanza con su nombre de etiqueta (ej. `header`). | N/A |
 | `DEBUG` | Activa logs detallados de depuración. | `false` |
 | `REQUEST_HEADERS` | JSON string con headers HTTP personalizados (ej. cookies de autenticación). | Ver abajo |
 | `REJECT_UNAUTHORIZED`| Fuerza la validación estricta de SSL (`true`/`false`). | Auto-detectado (false para local) |

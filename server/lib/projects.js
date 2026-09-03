@@ -195,14 +195,15 @@ function envFor(project) {
   const s = project.settings || {};
 
   if (project.mode === 'sitemap') {
-    ['SITE_URL', 'SITEMAP_URL', 'SAMPLE_SIZE', 'MAX_URLS', 'TIMEOUT', 'REQUEST_HEADERS', 'REJECT_UNAUTHORIZED', 'SCENARIO_DELAY']
+    ['SITE_URL', 'SITEMAP_URL', 'SAMPLE_SIZE', 'MAX_URLS', 'TIMEOUT', 'REQUEST_HEADERS', 'REJECT_UNAUTHORIZED', 'SCENARIO_DELAY', 'SCENARIO_HIDE', 'SCENARIO_REMOVE']
       .forEach(key => { if (s[key]) env[key] = String(s[key]); });
     env.SITEMAP_SAMPLE_MODE = s.SITEMAP_SAMPLE_MODE ? 'true' : '0';
   } else if (project.mode === 'url') {
     env.URL_LIST = `${project.id}.txt`;
-    if (s.SCENARIO_DELAY) env.SCENARIO_DELAY = String(s.SCENARIO_DELAY);
+    ['SCENARIO_DELAY', 'SCENARIO_HIDE', 'SCENARIO_REMOVE']
+      .forEach(key => { if (s[key]) env[key] = String(s[key]); });
   } else if (project.mode === 'design') {
-    ['DESIGN_URL', 'DESIGN_LABEL', 'DESIGN_THRESHOLD', 'DESIGN_HIDE', 'DESIGN_VIEWPORT_HEIGHT', 'SCENARIO_DELAY']
+    ['DESIGN_URL', 'DESIGN_LABEL', 'DESIGN_THRESHOLD', 'DESIGN_HIDE', 'DESIGN_REMOVE', 'DESIGN_VIEWPORT_HEIGHT', 'SCENARIO_DELAY']
       .forEach(key => { if (s[key]) env[key] = String(s[key]); });
     if (s.DESIGN_IMAGE) env.DESIGN_IMAGE = s.DESIGN_IMAGE;
   }

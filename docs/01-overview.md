@@ -57,3 +57,7 @@ backstop/
 1.  **Generación**: `generate-from-design.js` detecta las dimensiones de la imagen de diseño, crea el `backstop.json` con el viewport al ancho exacto de la imagen, y prepara el wrapper HTML local.
 2.  **Comparación**: `npm run design-compare` captura la imagen de diseño como referencia y luego captura la URL viva para hacer el diff.
 3.  **Reporte**: El mismo reporte HTML muestra lado a lado el diseño (izquierda) vs. la implementación real (derecha).
+
+## Panel Visual (Dashboard)
+
+Todo lo descripto arriba también está disponible como interfaz web (`npm run ui`), sin tocar la terminal: gestión visual de escenarios, un sistema de **proyectos adicionales** para manejar varias páginas/sitios en paralelo (cada uno con su propia carpeta de datos aislada y su propio modo de generación), y programación de pruebas por cron. Ver la referencia completa en [`07-dashboard.md`](07-dashboard.md).

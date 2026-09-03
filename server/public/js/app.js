@@ -747,6 +747,8 @@
       document.getElementById('cfg-MAX_URLS').value = env.MAX_URLS || '';
       document.getElementById('cfg-TIMEOUT').value = env.TIMEOUT || '';
       document.getElementById('cfg-SCENARIO_DELAY').value = env.SCENARIO_DELAY || '';
+      document.getElementById('cfg-SCENARIO_HIDE').value = env.SCENARIO_HIDE || '';
+      document.getElementById('cfg-SCENARIO_REMOVE').value = env.SCENARIO_REMOVE || '';
       document.getElementById('cfg-PROJECT_ID').value = env.PROJECT_ID || '';
       document.getElementById('cfg-BACKSTOP_DATA_DIR').value = env.BACKSTOP_DATA_DIR || '';
       document.getElementById('cfg-URL_LIST').value = env.URL_LIST || '';
@@ -767,6 +769,8 @@
       MAX_URLS: document.getElementById('cfg-MAX_URLS').value.trim(),
       TIMEOUT: document.getElementById('cfg-TIMEOUT').value.trim(),
       SCENARIO_DELAY: document.getElementById('cfg-SCENARIO_DELAY').value.trim(),
+      SCENARIO_HIDE: document.getElementById('cfg-SCENARIO_HIDE').value.trim(),
+      SCENARIO_REMOVE: document.getElementById('cfg-SCENARIO_REMOVE').value.trim(),
       PROJECT_ID: document.getElementById('cfg-PROJECT_ID').value.trim(),
       BACKSTOP_DATA_DIR: document.getElementById('cfg-BACKSTOP_DATA_DIR').value.trim(),
       URL_LIST: document.getElementById('cfg-URL_LIST').value.trim(),
@@ -970,6 +974,16 @@
   document.getElementById('project-modal-close').addEventListener('click', closeProjectDetail);
   projectBackdrop.addEventListener('click', e => { if (e.target === projectBackdrop) closeProjectDetail(); });
 
+  function hideRemoveFieldsHtml(s) {
+    return `
+      <div class="field-row">
+        <div class="field"><label>Ocultar selectores (visibility:hidden)</label><input id="pd-hide" value="${escapeAttr(s.SCENARIO_HIDE)}" placeholder=".cookie-banner, .chat" /></div>
+        <div class="field"><label>Quitar selectores (display:none)</label><input id="pd-remove" value="${escapeAttr(s.SCENARIO_REMOVE)}" placeholder="header, .cookie-banner" /></div>
+      </div>
+      <p class="hint">"Ocultar" hace invisible el elemento pero reserva su espacio (queda un hueco en blanco). "Quitar" lo saca del todo — el contenido de abajo sube a ocupar ese lugar. Se aplica a todos los escenarios generados. Para un header sin clase/id, escribí directamente <code>header</code>.</p>
+    `;
+  }
+
   function projectSettingsFieldsHtml(project) {
     const s = project.settings || {};
     if (project.mode === 'sitemap') {
@@ -984,12 +998,14 @@
           <div class="field"><label>MAX_URLS</label><input id="pd-max-urls" type="number" value="${s.MAX_URLS || ''}" /></div>
           <div class="field"><label>Espera (ms)</label><input id="pd-delay" type="number" step="500" value="${s.SCENARIO_DELAY || ''}" placeholder="5000" /></div>
         </div>
+        ${hideRemoveFieldsHtml(s)}
       `;
     }
     if (project.mode === 'url') {
       return `
         <div class="field"><label>URLs (una por línea)</label><textarea id="pd-urls" rows="5">${escapeAttr(s.urls)}</textarea></div>
         <div class="field"><label>Espera antes de capturar (ms)</label><input id="pd-delay" type="number" step="500" value="${s.SCENARIO_DELAY || ''}" placeholder="5000" /></div>
+        ${hideRemoveFieldsHtml(s)}
       `;
     }
     if (project.mode === 'design') {
@@ -1003,7 +1019,11 @@
           <div class="field"><label>Alto del viewport</label><input id="pd-design-height" type="number" value="${s.DESIGN_VIEWPORT_HEIGHT || 900}" /></div>
           <div class="field"><label>Espera (ms)</label><input id="pd-delay" type="number" step="500" value="${s.SCENARIO_DELAY || ''}" placeholder="1000" /></div>
         </div>
-        <div class="field"><label>Ocultar selectores (separados por coma)</label><input id="pd-design-hide" value="${escapeAttr(s.DESIGN_HIDE)}" placeholder=".cookie-banner, .chat" /></div>
+        <div class="field-row">
+          <div class="field"><label>Ocultar selectores (visibility:hidden)</label><input id="pd-design-hide" value="${escapeAttr(s.DESIGN_HIDE)}" placeholder=".cookie-banner, .chat" /></div>
+          <div class="field"><label>Quitar selectores (display:none)</label><input id="pd-design-remove" value="${escapeAttr(s.DESIGN_REMOVE)}" placeholder="header, .cookie-banner" /></div>
+        </div>
+        <p class="hint">"Ocultar" hace invisible el elemento pero reserva su espacio (queda un hueco en blanco). "Quitar" lo saca del todo — el contenido de abajo sube a ocupar ese lugar. Para un header sin clase/id, escribí directamente <code>header</code>.</p>
         <div class="field">
           <label>Imagen de diseño</label>
           <p class="hint">${s.DESIGN_IMAGE ? `Actual: <code>${escapeAttr(s.DESIGN_IMAGE)}</code>` : 'Todavía no subiste una imagen — subila antes de generar.'}</p>
@@ -1014,6 +1034,13 @@
     return '';
   }
 
+  function readHideRemoveFields(body) {
+    return {
+      SCENARIO_HIDE: body.querySelector('#pd-hide').value.trim(),
+      SCENARIO_REMOVE: body.querySelector('#pd-remove').value.trim()
+    };
+  }
+
   function readProjectSettingsForm(body, mode) {
     if (mode === 'sitemap') {
       return {
@@ -1022,13 +1049,15 @@
         SITEMAP_SAMPLE_MODE: body.querySelector('#pd-sample-mode').checked,
         SAMPLE_SIZE: body.querySelector('#pd-sample-size').value.trim(),
         MAX_URLS: body.querySelector('#pd-max-urls').value.trim(),
-        SCENARIO_DELAY: body.querySelector('#pd-delay').value.trim()
+        SCENARIO_DELAY: body.querySelector('#pd-delay').value.trim(),
+        ...readHideRemoveFields(body)
       };
     }
     if (mode === 'url') {
       return {
         urls: body.querySelector('#pd-urls').value,
-        SCENARIO_DELAY: body.querySelector('#pd-delay').value.trim()
+        SCENARIO_DELAY: body.querySelector('#pd-delay').value.trim(),
+        ...readHideRemoveFields(body)
       };
     }
     if (mode === 'design') {
@@ -1038,6 +1067,7 @@
         DESIGN_THRESHOLD: body.querySelector('#pd-design-threshold').value.trim(),
         DESIGN_VIEWPORT_HEIGHT: body.querySelector('#pd-design-height').value.trim(),
         DESIGN_HIDE: body.querySelector('#pd-design-hide').value.trim(),
+        DESIGN_REMOVE: body.querySelector('#pd-design-remove').value.trim(),
         SCENARIO_DELAY: body.querySelector('#pd-delay').value.trim()
       };
     }

@@ -32,6 +32,14 @@ const TIMEOUT = process.env.TIMEOUT ? parseInt(process.env.TIMEOUT) : 30000; // 
 // con animaciones, lazy-load o contenido que tarda en renderizar.
 const SCENARIO_DELAY = process.env.SCENARIO_DELAY ? parseInt(process.env.SCENARIO_DELAY) : 5000;
 
+// Selectores a aplicar en TODOS los escenarios generados (headers, banners
+// de cookies, widgets de chat, etc. que se repiten en todo el sitio).
+// SCENARIO_HIDE = visibility:hidden (oculta, pero reserva su espacio).
+// SCENARIO_REMOVE = display:none (lo saca del flujo, el contenido de abajo sube).
+const splitEnvSelectors = value => (value ? value.split(',').map(s => s.trim()).filter(Boolean) : []);
+const SCENARIO_HIDE_SELECTORS = splitEnvSelectors(process.env.SCENARIO_HIDE);
+const SCENARIO_REMOVE_SELECTORS = splitEnvSelectors(process.env.SCENARIO_REMOVE);
+
 const SITEMAP = process.env.SITEMAP == '0' ? false : true;
 const PUPPET = process.env.PUPPET == '0' ? false : true;
 
@@ -770,6 +778,8 @@ function generateScenarios(urls) {
       referenceUrl: "",
       readySelector: "body",
       delay: SCENARIO_DELAY,
+      hideSelectors: SCENARIO_HIDE_SELECTORS,
+      removeSelectors: SCENARIO_REMOVE_SELECTORS,
       selectors: [],
       misMatchThreshold: 0.1,
       requireSameDimensions: true

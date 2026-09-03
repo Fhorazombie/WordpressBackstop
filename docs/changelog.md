@@ -2,6 +2,44 @@
 
 ---
 
+## [Unreleased] — 2026-09-03
+
+### Añadido
+
+#### Panel Visual (Dashboard)
+
+Interfaz web completa (`npm run ui`) sobre un servidor Express nuevo en `server/`, como alternativa al flujo por línea de comandos. Referencia completa en [`docs/07-dashboard.md`](07-dashboard.md).
+
+**Funcionalidad principal:**
+- Gestión visual de escenarios y viewports del proyecto principal (alta/edición/borrado), sin regenerar desde sitemap/lista.
+- Disparo de `generate-from-sitemap` / `generate-from-list` desde el navegador, con log en vivo vía Server-Sent Events.
+- Gestión de los archivos de `url-lists/`.
+- Programación de pruebas con expresión cron (`node-cron`), historial de corridas, ejecución manual y activar/pausar.
+- Editor de las variables principales del `.env`.
+- Historial completo de corridas (manuales y programadas) con su log.
+
+**Proyectos múltiples (páginas adicionales aisladas):**
+- Cada proyecto adicional tiene su propia carpeta de datos (`backstop_data/<id>/`), su propio modo de generación (Sitemap / URL-Lista / Diseño vs. Live — con subida de imagen incluida), su propia configuración/escenarios/viewports, y sus propias acciones (generar/referencias/pruebas/aprobar/reporte).
+- Los schedules pueden apuntar a un proyecto específico o al principal.
+- En modo Diseño, "Crear Referencias" queda oculto y "Generar" encadena `generate-design` + `reference` en una sola corrida, ya que la referencia sale directamente de la imagen subida.
+
+**Correcciones de fondo encontradas y resueltas durante el desarrollo:**
+- *Condición de carrera al generar en paralelo*: todos los proyectos comparten el mismo `backstop.json` de la raíz para invocar el CLI de BackstopJS; dos corridas concurrentes podían pisarse. Se agregó una cola global en el runner que serializa toda ejecución.
+- *Pérdida de viewports/escenarios al regenerar*: la config guardada de un proyecto no se "activaba" en el `backstop.json` compartido antes de generar, así que el script heredaba lo que hubiera quedado ahí (de una corrida vieja, o de otro proyecto) y lo volvía a guardar, pisando lo recién editado. Se corrigió sincronizando siempre la config justo antes de que la corrida salga de la cola (no antes).
+- *Mezcla entre el proyecto principal y los adicionales*: el proyecto principal no tenía almacenamiento propio — leía/escribía directamente el `backstop.json` compartido. Ahora tiene su propio archivo persistente (`data/default-project.json`), igual que cada proyecto adicional.
+
+#### Tiempo de espera y contenido con lazy-load
+
+- `SCENARIO_DELAY`: tiempo de espera (ms) configurable antes de capturar cada página — global, por proyecto adicional, o por escenario puntual.
+- `backstop_data/engine_scripts/onReady.js`: recorre la página antes de capturar para disparar contenido con lazy-load (imágenes, secciones con IntersectionObserver, sliders), espera a que las imágenes terminen de cargar de verdad (no una pausa fija, para que la Referencia y la Prueba no terminen con alturas de página distintas) y congela animaciones/transiciones CSS antes de la captura. Se activa automáticamente (`onReadyScript` en la config base) para todo escenario nuevo.
+- `generate-from-design.js` ahora respeta `BACKSTOP_DATA_DIR`, aislando también sus referencias de diseño por proyecto.
+
+#### Ocultar vs. quitar selectores
+
+- `SCENARIO_HIDE` / `SCENARIO_REMOVE` (proyecto principal, sitemap y lista) y `DESIGN_REMOVE` (modo Diseño, nueva — complementa a `DESIGN_HIDE`): selectores CSS aplicados a todos los escenarios generados. "Ocultar" usa `visibility:hidden` (reserva el espacio); "Quitar" usa `display:none` (el contenido de abajo sube a ocupar el lugar). Expuestos en la pestaña Configuración y en el detalle de cada proyecto adicional.
+
+---
+
 ## [Unreleased] — 2026-06-22
 
 ### Añadido
