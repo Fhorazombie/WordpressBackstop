@@ -1065,12 +1065,13 @@
       <div class="panel">
         <h2>Acciones</h2>
         <div class="quick-actions">
-          <button class="btn" id="pd-generate">⚙️ Generar</button>
-          <button class="btn btn-primary" id="pd-reference">📸 Crear Referencias</button>
+          <button class="btn" id="pd-generate">⚙️ ${project.mode === 'design' ? 'Generar (captura la referencia)' : 'Generar'}</button>
+          ${project.mode === 'design' ? '' : '<button class="btn btn-primary" id="pd-reference">📸 Crear Referencias</button>'}
           <button class="btn btn-primary" id="pd-test">🔍 Ejecutar Pruebas</button>
           <button class="btn btn-success" id="pd-approve">✅ Aprobar Cambios</button>
           <a class="btn" href="/backstop_data/${project.id}/html_report/index.html" target="_blank" rel="noopener">📊 Ver reporte ↗</a>
         </div>
+        ${project.mode === 'design' ? '<p class="hint" style="margin-top:.75rem">En modo Diseño la referencia sale directamente de la imagen subida, así que "Generar" ya la captura — no hace falta un paso aparte.</p>' : ''}
       </div>
 
       <div class="panel">
@@ -1258,14 +1259,16 @@
         toast(error.message, true);
       }
     };
-    body.querySelector('#pd-reference').addEventListener('click', () => runAction('reference'));
+    const referenceBtn = body.querySelector('#pd-reference');
+    if (referenceBtn) referenceBtn.addEventListener('click', () => runAction('reference'));
     body.querySelector('#pd-test').addEventListener('click', () => runAction('test'));
     body.querySelector('#pd-approve').addEventListener('click', () => runAction('approve'));
 
     body.querySelector('#pd-generate').addEventListener('click', async () => {
       try {
         const { runId } = await api(`/projects/${project.id}/generate`, { method: 'POST' });
-        openLogModal(runId, `[${project.name}] Generar`, () => {
+        const label = project.mode === 'design' ? `[${project.name}] Generar → Referencias` : `[${project.name}] Generar`;
+        openLogModal(runId, label, () => {
           loadProjectScenarios(project.id);
           loadProjects();
           loadDashboard();

@@ -135,7 +135,13 @@ router.put('/projects/:id/viewports', (req, res) => {
 router.post('/projects/:id/generate', (req, res) => {
   try {
     const project = projects.get(req.params.id);
-    const run = projectRunner.runPipeline(project, [projects.generateStepFor(project)]);
+    const steps = [projects.generateStepFor(project)];
+    // En modo Diseño la "referencia" es directamente la imagen subida, así
+    // que capturarla no depende de nada externo (a diferencia de sitemap/
+    // lista, donde referenciar el sitio en vivo es una decisión aparte) —
+    // encadenamos reference para no exigir un segundo click manual.
+    if (project.mode === 'design') steps.push('reference');
+    const run = projectRunner.runPipeline(project, steps);
     res.status(202).json({ runId: run.id });
   } catch (error) {
     res.status(400).json({ error: error.message });
