@@ -20,7 +20,8 @@ const KNOWN_KEYS = [
   'URL_LIST',
   'REQUEST_HEADERS',
   'REJECT_UNAUTHORIZED',
-  'DEBUG'
+  'DEBUG',
+  'MAX_CONCURRENT_RUNS'
 ];
 
 function readEnv() {

@@ -7,27 +7,61 @@ const { readJson, writeJson } = require('./store');
 const { ROOT, SCRIPTS_DIR, RUNS_DIR, RUNS_INDEX_FILE, BIN_DIR } = require('./paths');
 
 const MAX_RUNS_KEPT = 100;
+const DEFAULT_MAX_CONCURRENT_RUNS = 3;
 
 // Mantiene el estado "en vivo" (emitter + buffer) de las corridas activas o
 // recién finalizadas, para poder transmitir el log por SSE.
 const activeRuns = new Map();
 
-// backstop.json y backstop_data/engine_scripts son compartidos por TODOS los
-// pipelines (proyecto principal y proyectos adicionales por igual). Sólo puede
-// haber una corrida tocando ese estado a la vez, así que todo pasa por esta
-// cola global — evita que dos generaciones/ejecuciones concurrentes se pisen
-// entre sí escribiendo el mismo backstop.json.
-let queue = Promise.resolve();
-let queueDepth = 0;
+// Cada corrida usa su PROPIO backstop.json aislado (uno por run, ver
+// configFilePath()) en lugar del backstop.json compartido de la raíz, así que
+// dos corridas de PROYECTOS DISTINTOS ya no pueden pisarse entre sí y pueden
+// ejecutarse en paralelo de verdad. Lo único que sigue necesitando orden es
+// que dos corridas del MISMO proyecto (o dos del proyecto principal) no se
+// solapen — porque ambas leen/escriben la misma configuración persistida
+// (project.config / default-project.json) al terminar de generar — así que
+// esas se siguen serializando entre sí con una cola por "key". Además, un
+// límite global de corridas simultáneas evita que muchas personas a la vez
+// disparen demasiados Chromium/Puppeteer en paralelo.
+const queuesByKey = new Map(); // key -> Promise (cola serial de ese proyecto/principal)
+const queueDepthByKey = new Map(); // key -> cantidad de corridas esperando en esa cola
+
+let runningCount = 0;
+const waiters = []; // resolvers esperando un cupo del límite global de concurrencia
 
 fs.mkdirSync(RUNS_DIR, { recursive: true });
+
+function maxConcurrentRuns() {
+  const raw = parseInt(process.env.MAX_CONCURRENT_RUNS, 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_MAX_CONCURRENT_RUNS;
+}
+
+function acquireGlobalSlot() {
+  if (runningCount < maxConcurrentRuns()) {
+    runningCount += 1;
+    return Promise.resolve();
+  }
+  return new Promise(resolve => waiters.push(resolve));
+}
+
+function releaseGlobalSlot() {
+  runningCount -= 1;
+  const next = waiters.shift();
+  if (next) {
+    runningCount += 1;
+    next();
+  }
+}
 
 function binPath(name) {
   const exe = process.platform === 'win32' ? `${name}.cmd` : name;
   return path.join(BIN_DIR, exe);
 }
 
-// Define cómo se lanza cada tipo de paso soportado por un pipeline.
+// Define cómo se lanza cada tipo de paso soportado por un pipeline. Los pasos
+// de generación toman el archivo de config vía la variable de entorno
+// BACKSTOP_CONFIG_FILE (la leen los scripts en scripts/lib/utils.js); los que
+// invocan el CLI de BackstopJS directamente lo reciben como --config.
 const STEP_COMMANDS = {
   'generate-sitemap': () => ({
     command: process.execPath,
@@ -41,9 +75,9 @@ const STEP_COMMANDS = {
     command: process.execPath,
     args: [path.join(SCRIPTS_DIR, 'generate-from-design.js')]
   }),
-  reference: () => ({ command: binPath('backstop'), args: ['reference'] }),
-  test: () => ({ command: binPath('backstop'), args: ['test'] }),
-  approve: () => ({ command: binPath('backstop'), args: ['approve'] })
+  reference: configFile => ({ command: binPath('backstop'), args: ['reference', '--config', configFile] }),
+  test: configFile => ({ command: binPath('backstop'), args: ['test', '--config', configFile] }),
+  approve: configFile => ({ command: binPath('backstop'), args: ['approve', '--config', configFile] })
 };
 
 const STEP_LABELS = {
@@ -69,6 +103,11 @@ function saveIndex(runs) {
 
 function logFilePath(id) {
   return path.join(RUNS_DIR, `${id}.log`);
+}
+
+/** Cada corrida tiene su propio backstop.json aislado, para no pisar a otras corridas concurrentes. */
+function configFilePath(id) {
+  return path.join(RUNS_DIR, `${id}.backstop.json`);
 }
 
 function listRuns(limit = 50) {
@@ -97,7 +136,7 @@ function upsertIndex(run) {
 /**
  * Ejecuta un paso individual como proceso hijo, devolviendo el código de salida.
  */
-function runStep(step, env, emitter) {
+function runStep(step, env, emitter, configFile) {
   return new Promise(resolve => {
     if (!isValidStep(step)) {
       emitter.emit('log', `\n[error] Paso desconocido: ${step}\n`);
@@ -105,12 +144,15 @@ function runStep(step, env, emitter) {
       return;
     }
 
-    const { command, args } = STEP_COMMANDS[step]();
+    const { command, args } = STEP_COMMANDS[step](configFile);
+    const stepEnv = step.startsWith('generate')
+      ? { ...env, BACKSTOP_CONFIG_FILE: configFile }
+      : env;
     emitter.emit('log', `\n▶ ${STEP_LABELS[step]}\n$ ${command} ${args.join(' ')}\n\n`);
 
     const child = spawn(command, args, {
       cwd: ROOT,
-      env,
+      env: stepEnv,
       shell: process.platform === 'win32'
     });
 
@@ -132,8 +174,19 @@ function runStep(step, env, emitter) {
 /**
  * Lanza un pipeline (secuencia de pasos) de forma asíncrona.
  * Devuelve inmediatamente el id de la corrida; el trabajo continúa en segundo plano.
+ *
+ * `key` agrupa corridas que comparten estado persistido (un proyecto, o el
+ * proyecto principal) y por lo tanto deben ejecutarse en orden entre sí —
+ * corridas con `key` distinta pueden correr en paralelo (hasta el límite
+ * global MAX_CONCURRENT_RUNS).
+ *
+ * `beforeStart(configFile)` y `afterSuccess(configFile)` reciben la ruta del
+ * backstop.json aislado de ESTA corrida, para que el llamador se encargue de
+ * sembrarlo con la configuración persistida del proyecto antes de arrancar, y
+ * de volcar lo generado de vuelta a esa configuración persistida si el
+ * pipeline generó escenarios nuevos.
  */
-function startPipeline({ steps, envOverrides = {}, label, scheduleId = null, beforeStart = null }) {
+function startPipeline({ steps, envOverrides = {}, label, scheduleId = null, key = 'default', beforeStart = null, afterSuccess = null }) {
   const invalid = steps.filter(s => !isValidStep(s));
   if (invalid.length > 0) {
     throw new Error(`Pasos inválidos: ${invalid.join(', ')}`);
@@ -168,60 +221,79 @@ function startPipeline({ steps, envOverrides = {}, label, scheduleId = null, bef
   activeRuns.set(id, { emitter, done: false });
 
   const env = { ...process.env, ...envOverrides };
+  const configFile = configFilePath(id);
 
-  if (queueDepth > 0) {
-    emitter.emit('log', '⏳ En cola: esperando a que termine otra ejecución en curso...\n');
+  const depth = queueDepthByKey.get(key) || 0;
+  if (depth > 0) {
+    emitter.emit('log', `⏳ En cola: esperando a que termine otra corrida de "${key}" en curso...\n`);
   }
-  queueDepth += 1;
+  queueDepthByKey.set(key, depth + 1);
 
-  queue = queue.then(async () => {
-    // Se ejecuta recién cuando le toca el turno en la cola (no al encolar),
-    // para que cualquier preparación que toque el estado compartido
-    // (activar la config de un proyecto en backstop.json, por ejemplo) no
-    // pise una corrida anterior que todavía esté en curso.
-    if (beforeStart) {
-      try {
-        await beforeStart();
-      } catch (error) {
-        emitter.emit('log', `\n[error] ${error.message}\n`);
-        run.status = 'failed';
-        run.exitCode = 1;
-        run.finishedAt = new Date().toISOString();
-        upsertIndex(run);
-        emitter.emit('end', run);
-        const active = activeRuns.get(id);
-        if (active) active.done = true;
-        setTimeout(() => activeRuns.delete(id), 5000);
-        queueDepth -= 1;
-        return;
+  const previous = queuesByKey.get(key) || Promise.resolve();
+  const next = previous.then(async () => {
+    // Se ejecuta recién cuando le toca el turno dentro de su cola (no al
+    // encolar), para que cualquier preparación que toque el estado
+    // persistido del proyecto (sembrar el backstop.json de esta corrida, por
+    // ejemplo) no pise una corrida anterior del mismo proyecto que todavía
+    // esté en curso.
+    await acquireGlobalSlot();
+
+    const fail = error => {
+      emitter.emit('log', `\n[error] ${error.message}\n`);
+      run.status = 'failed';
+      run.exitCode = 1;
+      run.finishedAt = new Date().toISOString();
+      upsertIndex(run);
+      emitter.emit('end', run);
+      const active = activeRuns.get(id);
+      if (active) active.done = true;
+      setTimeout(() => activeRuns.delete(id), 5000);
+    };
+
+    try {
+      if (beforeStart) {
+        await beforeStart(configFile);
       }
-    }
 
-    run.status = 'running';
-    upsertIndex(run);
+      run.status = 'running';
+      upsertIndex(run);
 
-    let finalCode = 0;
-    for (const step of steps) {
-      const code = await runStep(step, env, emitter);
-      if (code !== 0) {
-        finalCode = code;
-        break;
+      let finalCode = 0;
+      for (const step of steps) {
+        const code = await runStep(step, env, emitter, configFile);
+        if (code !== 0) {
+          finalCode = code;
+          break;
+        }
       }
+
+      run.status = finalCode === 0 ? 'success' : 'failed';
+      run.exitCode = finalCode;
+      run.finishedAt = new Date().toISOString();
+      upsertIndex(run);
+
+      if (run.status === 'success' && afterSuccess) {
+        try {
+          await afterSuccess(configFile);
+        } catch (error) {
+          console.warn(`No se pudo sincronizar tras la corrida "${id}": ${error.message}`);
+        }
+      }
+
+      emitter.emit('end', run);
+      const active = activeRuns.get(id);
+      if (active) active.done = true;
+      // Deja el emitter disponible un momento para que los streams SSE
+      // conectados reciban el evento 'end', luego lo libera de memoria.
+      setTimeout(() => activeRuns.delete(id), 5000);
+    } catch (error) {
+      fail(error);
+    } finally {
+      queueDepthByKey.set(key, (queueDepthByKey.get(key) || 1) - 1);
+      releaseGlobalSlot();
     }
-
-    run.status = finalCode === 0 ? 'success' : 'failed';
-    run.exitCode = finalCode;
-    run.finishedAt = new Date().toISOString();
-    upsertIndex(run);
-
-    emitter.emit('end', run);
-    const active = activeRuns.get(id);
-    if (active) active.done = true;
-    // Deja el emitter disponible un momento para que los streams SSE conectados
-    // reciban el evento 'end', luego lo libera de memoria.
-    setTimeout(() => activeRuns.delete(id), 5000);
-    queueDepth -= 1;
   });
+  queuesByKey.set(key, next);
 
   return { id, run };
 }

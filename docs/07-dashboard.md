@@ -6,13 +6,30 @@ Documentación completa del panel web (`npm run ui`) que se sumó al flujo por l
 
 ## 1. Arrancar el panel
 
+El panel necesita una base de datos **Postgres** para el login (usuarios y sesiones). Antes del primer arranque:
+
+```bash
+createdb backstop_ui   # o crearla a mano en el Postgres que uses
+```
+
+Y definir en `.env`:
+
+```bash
+DATABASE_URL=postgres://usuario:password@localhost:5432/backstop_ui
+SESSION_SECRET=un-valor-largo-y-aleatorio
+```
+
+Después:
+
 ```bash
 npm run ui
 ```
 
 Levanta un servidor Express local en `http://localhost:4780` (configurable con `UI_PORT`, y `UI_HOST` si necesitás escucharlo en otra interfaz). Todo lo que hace el panel usa exactamente los mismos scripts (`generate-from-sitemap.js`, `generate-from-list.js`, `generate-from-design.js`) y el mismo `backstop` (CLI de BackstopJS) que ya usa el flujo de terminal — el panel es una capa encima, no un motor distinto.
 
-**Dependencias que agrega:** `express`, `node-cron`, `multer` (para subir la imagen en proyectos de Diseño). No son necesarias si sólo usás la línea de comandos.
+Si `DATABASE_URL` no está definida, el servidor no arranca (falla con un mensaje claro) — el login ya no es opcional. Las tablas (`users`, `session`) se crean solas en el primer arranque. Ver [sección 11](#11-login-usuarios-y-sesión-postgres) para el detalle.
+
+**Dependencias que agrega:** `express`, `node-cron`, `multer` (subida de imagen en proyectos de Diseño), `pg`, `bcryptjs`, `express-session`, `connect-pg-simple` (login). No son necesarias si sólo usás la línea de comandos.
 
 ---
 
@@ -20,18 +37,22 @@ Levanta un servidor Express local en `http://localhost:4780` (configurable con `
 
 ```
 server/
-├── index.js                 # App Express: monta las rutas, sirve el panel, arranca el scheduler
+├── index.js                 # App Express: sesión, login, monta las rutas, sirve el panel, arranca el scheduler
 ├── lib/
 │   ├── paths.js              # Rutas de archivos centralizadas (backstop.json, data/*.json, etc.)
 │   ├── store.js               # Lectura/escritura genérica de JSON
 │   ├── backstopConfig.js      # CRUD de escenarios/viewports del proyecto PRINCIPAL
 │   ├── envFile.js             # Lee/escribe las variables conocidas del .env
-│   ├── runner.js              # Cola global de ejecuciones + streaming de logs por SSE
+│   ├── db.js                  # Pool de conexión a Postgres (DATABASE_URL)
+│   ├── auth.js                # Usuarios: tabla, alta, verificación de contraseña (bcrypt)
+│   ├── runner.js              # Motor de ejecuciones: config aislada por corrida + límite de concurrencia + streaming de logs por SSE
 │   ├── projects.js            # CRUD de proyectos adicionales (páginas aisladas)
 │   ├── projectRunner.js       # Orquesta la ejecución de un pipeline para un proyecto adicional
 │   └── scheduler.js           # Programación de pruebas (node-cron)
-├── routes/                  # Endpoints REST (uno por área: scenarios, projects, schedules, etc.)
-└── public/                  # Frontend: index.html + css/app.css + js/app.js (sin build step)
+├── middleware/
+│   └── requireAuth.js         # Exige sesión iniciada para todo excepto /login.html y /api/auth/*
+├── routes/                  # Endpoints REST (uno por área: auth, scenarios, projects, schedules, etc.)
+└── public/                  # Frontend: index.html, login.html + css/app.css + js/app.js + js/login.js (sin build step)
 
 data/                        # Estado del panel (historial, schedules, proyectos) — en .gitignore, igual que .env
 ├── default-project.json      # Config persistente del proyecto principal
@@ -87,18 +108,21 @@ Pensado para gestionar varios sitios/páginas desde el mismo panel sin que se pi
 
 ### Cómo conviven con el proyecto principal (detalle técnico)
 
-BackstopJS sólo sabe leer/escribir un `backstop.json` en la raíz del repo — es el único archivo que el CLI y los scripts de generación entienden. Como todos los proyectos (principal + adicionales) lo comparten como "área de trabajo" para invocar el CLI, el panel:
+BackstopJS lee/escribe un `backstop.json`, pero el panel **nunca usa uno compartido**: cada corrida (ver más abajo) recibe su propio archivo aislado. El panel:
 
 1. Guarda la configuración *real* de cada proyecto por separado (`data/default-project.json` para el principal, `data/projects.json` para los adicionales).
-2. Justo antes de correr algo para un proyecto — nunca antes, sino recién cuando le toca el turno en la cola (ver más abajo) — copia esa configuración guardada al `backstop.json` de la raíz ("activarla").
-3. Corre el paso (generar / referenciar / probar / aprobar).
-4. Si el paso generó escenarios nuevos, vuelve a guardar lo que quedó en `backstop.json` en el almacenamiento persistente del proyecto.
+2. Justo antes de correr algo para un proyecto, siembra el `backstop.json` PROPIO de esa corrida con la configuración guardada de ese proyecto.
+3. Corre el paso (generar / referenciar / probar / aprobar) pasándole ese archivo al CLI (`--config`) o a los scripts de generación (`BACKSTOP_CONFIG_FILE`).
+4. Si el paso generó escenarios nuevos, guarda lo que quedó en ese archivo aislado de vuelta en el almacenamiento persistente del proyecto.
 
-Esto es necesario porque, si no se sincroniza así, cualquier operación de un proyecto podría heredar o pisar la configuración que dejó la última corrida de otro proyecto — un bug real que se encontró y corrigió durante el desarrollo (ver el registro en `docs/changelog.md`).
+Esto es necesario porque, si dos corridas compartieran el mismo archivo de trabajo, una podría heredar o pisar la configuración de la otra mientras ambas están en curso — un bug real que se encontró y corrigió durante el desarrollo (ver el registro en `docs/changelog.md`). Con un archivo por corrida, ese riesgo desaparece por completo — no importa cuántas corridas de proyectos distintos estén en marcha a la vez.
 
-### Cola global de ejecuciones
+### Concurrencia: cuántas corridas van en paralelo
 
-Como todos los proyectos comparten ese mismo `backstop.json` de la raíz, sólo puede haber **una corrida a la vez** tocándolo. El panel encola automáticamente cualquier corrida que se dispare mientras otra está en curso (estado `queued` en el Historial, con un mensaje "⏳ En cola…" al principio del log) y la arranca apenas termina la anterior. No hace falta coordinar esto manualmente — sólo tené en cuenta que, si disparás varias corridas seguidas, no van a ejecutarse literalmente en paralelo.
+Antes, todas las corridas de todos los proyectos compartían el mismo `backstop.json` de la raíz, así que sólo podía haber **una corriendo a la vez** en todo el panel. Ahora que cada corrida tiene su propio archivo:
+
+- **Corridas de proyectos distintos** (o de un proyecto adicional y el principal) pueden ejecutarse **en paralelo de verdad**, hasta el límite `MAX_CONCURRENT_RUNS` (pestaña Configuración; default `3`). Subilo con cuidado: cada corrida lanza su propio Chromium vía Puppeteer, así que el límite real depende de la RAM/CPU del servidor donde corre el panel — para 15 personas usando el panel a la vez, vale la pena medir cuánta RAM usa un Chromium típico contra ese sitio y calcular el límite en base a eso, no subirlo a ciegas.
+- **Dos corridas del MISMO proyecto** (por ejemplo, dos clics seguidos en "Ejecutar Pruebas" del mismo proyecto, o una manual mientras corre una programada) se siguen ejecutando **en orden entre sí** — comparten la configuración persistida de ese proyecto, así que si corrieran en paralelo una podría pisar lo que la otra acaba de guardar. El Historial muestra esto con el estado `queued` y un mensaje "⏳ En cola: esperando a que termine otra corrida de..." al principio del log — pero esa espera sólo bloquea a corridas del mismo proyecto, nunca a las de otros.
 
 ---
 
@@ -118,7 +142,7 @@ Crear *schedules* con expresión cron (con atajos: cada hora, diario, etc.) que 
 - Al elegir un proyecto en el formulario, el pipeline pasa a mostrar pasos abstractos (Generar / Referencias / Pruebas / Aprobar) en vez de los nombres concretos (`generate-sitemap`, `generate-list`, etc.) — el paso "Generar" se resuelve automáticamente al modo real de ESE proyecto en el momento de disparar.
 - Cada schedule guarda el resultado de su última corrida (estado + fecha) y se puede disparar manualmente con "Ejecutar ahora", sin esperar al cron.
 - Activar/pausar un schedule no borra su configuración.
-- Las corridas programadas pasan por la misma cola global que las manuales — si una corrida programada coincide con otra en curso, se encola igual que cualquier otra.
+- Las corridas programadas comparten el mismo mecanismo de concurrencia que las manuales (ver sección 4): si una corrida programada coincide con otra del mismo proyecto en curso, se encola detrás de ella; si coincide con una de otro proyecto, corren en paralelo.
 
 ---
 
@@ -168,11 +192,33 @@ Además de las ya documentadas en `docs/03-configuration.md`, el panel introdujo
 | `SCENARIO_DELAY` | Generación de escenarios | Ver sección 8. |
 | `SCENARIO_HIDE` / `SCENARIO_REMOVE` | Generación de escenarios (sitemap/lista) | Ver sección 7. |
 | `DESIGN_REMOVE` | Modo Diseño | Ver sección 7 (par de `DESIGN_HIDE`, que ya existía). |
+| `MAX_CONCURRENT_RUNS` | Concurrencia | Ver sección 4. Default `3`. |
+| `DATABASE_URL` | Login | **Obligatoria** para `npm run ui`. Ver sección 11. |
+| `SESSION_SECRET` | Login | Recomendada en producción. Ver sección 11. |
 
-Ninguna de estas variables es obligatoria — el comportamiento por defecto es idéntico al de antes de que existieran.
+Salvo `DATABASE_URL` (obligatoria) y `SESSION_SECRET` (recomendada), ninguna de estas variables es obligatoria — el comportamiento por defecto es idéntico al de antes de que existieran.
 
 ---
 
 ## 10. Notas de migración
 
-Si venís de una versión del proyecto anterior a que existiera `data/default-project.json`: la primera vez que el panel lee la configuración del proyecto principal, si ese archivo todavía no existe pero `backstop.json` sí, lo adopta como punto de partida (siempre que nunca hayas usado el sistema de proyectos múltiples — si `data/projects.json` ya existe, arranca vacío en su lugar, para no heredar por accidente lo que haya quedado en `backstop.json` de la corrida de otro proyecto). Después de esa primera vez, `data/default-project.json` es la fuente de verdad y `backstop.json` vuelve a ser sólo el archivo de trabajo que usa el CLI.
+Si venís de una versión del proyecto anterior a que existiera `data/default-project.json`: la primera vez que el panel lee la configuración del proyecto principal, si ese archivo todavía no existe pero `backstop.json` sí, lo adopta como punto de partida (siempre que nunca hayas usado el sistema de proyectos múltiples — si `data/projects.json` ya existe, arranca vacío en su lugar, para no heredar por accidente lo que haya quedado en `backstop.json` de la corrida de otro proyecto). Después de esa primera vez, `data/default-project.json` es la fuente de verdad y `backstop.json` vuelve a ser sólo un archivo legado — cada corrida usa el suyo propio (ver sección 4).
+
+---
+
+## 11. Login: usuarios y sesión (Postgres)
+
+Todo el panel (menos `login.html` y las rutas `/api/auth/*`) requiere haber iniciado sesión — incluida la API, el reporte HTML y los `backstop_data/` de cualquier proyecto servidos por HTTP.
+
+**Primer arranque:**
+1. Con `DATABASE_URL` y (recomendado) `SESSION_SECRET` en el `.env`, corré `npm run ui`.
+2. Entrá a `http://localhost:4780` — te redirige a `/login.html`.
+3. Pestaña "Crear cuenta": el **primer registro** crea la cuenta inicial y entra automáticamente. No hace falta ninguna configuración previa en la base — la tabla `users` (y la de sesiones, `session`) se crean solas en el primer arranque.
+
+**Agregar al resto del equipo:** una vez que existe al menos un usuario, el registro se cierra para cualquiera que no tenga sesión iniciada (evita que alguien con el link del panel se cree una cuenta por su cuenta). Para dar de alta a un compañero, con tu sesión iniciada andá a "+ Agregar compañero" en la barra lateral (te lleva a `/login.html`, pero como ya estás logueado el registro funciona igual) y cargá su email/contraseña.
+
+**Qué guarda la base:**
+- `users`: email (único) y contraseña con hash `bcrypt` — nunca en texto plano.
+- `session`: la sesión de cada login (creada y gestionada por `connect-pg-simple`), para que no haya que volver a loguearse cada vez que se reinicia el servidor.
+
+**Qué NO pasa por acá:** las imágenes de referencia/prueba, los reportes HTML y los archivos de configuración de cada proyecto siguen siendo archivos en disco (`backstop_data/`, `data/*.json`) — Postgres sólo maneja usuarios y sesión. No hay roles ni permisos distintos entre usuarios: cualquiera que inicie sesión tiene acceso completo al panel (todos los proyectos, la programación y la configuración).

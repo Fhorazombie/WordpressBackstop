@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BackstopJS Dashboard — Acceso</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+  <style>
+    body.login-body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 380px;
+    }
+    .login-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+      font-family: var(--font-display);
+      color: var(--cyan);
+      text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+      letter-spacing: 0.06em;
+    }
+    .login-brand .brand-icon { font-size: 1.6rem; }
+    .login-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.2rem; }
+    .login-tabs button {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      border-radius: var(--radius);
+      padding: 0.5rem;
+      font-family: var(--font-body);
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .login-tabs button.active { color: var(--cyan); border-color: var(--cyan-dim); box-shadow: 0 0 12px rgba(0, 240, 255, 0.18); }
+    .login-msg { min-height: 1.2rem; font-size: 0.85rem; margin-bottom: 0.6rem; }
+    .login-msg.error { color: var(--red); }
+    .login-msg.ok { color: var(--green); }
+  </style>
+</head>
+<body class="login-body">
+  <div class="bg-fx" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <div class="login-card">
+    <div class="login-brand">
+      <span class="brand-icon">🧪</span>
+      <strong>BACKSTOP//UI</strong>
+    </div>
+
+    <div class="panel">
+      <div class="login-tabs">
+        <button type="button" id="tab-login" class="active">Ingresar</button>
+        <button type="button" id="tab-register">Crear cuenta</button>
+      </div>
+
+      <p id="login-msg" class="login-msg"></p>
+
+      <form id="form-login">
+        <div class="field"><label>Email</label><input id="login-email" type="email" required autocomplete="username" /></div>
+        <div class="field"><label>Contraseña</label><input id="login-password" type="password" required autocomplete="current-password" /></div>
+        <button type="submit" class="btn btn-primary" style="width:100%">Ingresar</button>
+      </form>
+
+      <form id="form-register" hidden>
+        <div class="field"><label>Email</label><input id="register-email" type="email" required autocomplete="username" /></div>
+        <div class="field"><label>Contraseña (mínimo 8 caracteres)</label><input id="register-password" type="password" required minlength="8" autocomplete="new-password" /></div>
+        <button type="submit" class="btn btn-primary" style="width:100%">Crear cuenta</button>
+        <p class="hint" style="margin-top:.6rem">El primer registro crea la cuenta inicial. Después, sólo alguien ya logueado puede dar de alta a un nuevo compañero de equipo.</p>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/login.js"></script>
+</body>
+</html>

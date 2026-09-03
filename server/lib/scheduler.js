@@ -35,20 +35,12 @@ function fire(schedule) {
       envOverrides: schedule.envOverrides || {},
       label: `[Agendado] ${schedule.name}`,
       scheduleId: schedule.id,
-      beforeStart: () => backstopConfig.syncDefaultToDisk()
+      key: 'default',
+      beforeStart: configFile => backstopConfig.writeConfigFile(configFile, backstopConfig.readDefaultConfig()),
+      afterSuccess: hasGenerateStep
+        ? configFile => backstopConfig.writeDefaultConfig(backstopConfig.readConfigFile(configFile))
+        : null
     }));
-
-    if (hasGenerateStep) {
-      runner.subscribe(run.id, () => {}, finished => {
-        if (finished && finished.status === 'success') {
-          try {
-            backstopConfig.syncDefaultFromDisk();
-          } catch (error) {
-            console.warn(`No se pudo sincronizar el proyecto principal tras generar: ${error.message}`);
-          }
-        }
-      });
-    }
   }
 
   const schedules = readSchedules();

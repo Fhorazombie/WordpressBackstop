@@ -4,6 +4,17 @@ const { URL } = require('url');
 const crypto = require('crypto');
 
 /**
+ * Ruta del archivo de configuración de BackstopJS a leer/escribir. Por
+ * defecto es el backstop.json de la raíz (uso normal por CLI/terminal).
+ * El dashboard la sobrescribe con un archivo aislado por corrida
+ * (BACKSTOP_CONFIG_FILE), para que dos ejecuciones concurrentes nunca
+ * lean ni pisen el mismo archivo.
+ */
+function getConfigFilePath() {
+  return process.env.BACKSTOP_CONFIG_FILE || path.join(__dirname, '..', '..', 'backstop.json');
+}
+
+/**
  * Obtiene los headers para las peticiones HTTP desde variables de entorno
  * @returns {Object} Headers configurados
  */
@@ -161,7 +172,7 @@ function getBaseConfig() {
   let baseConfig = {};
   
   try {
-    const configPath = path.join(__dirname, '..', '..', 'backstop.json');
+    const configPath = getConfigFilePath();
     if (fs.existsSync(configPath)) {
       const existing = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       // Mantener toda la configuración excepto los escenarios
@@ -224,5 +235,6 @@ module.exports = {
   detectAndConfigureSSL,
   generateLabel,
   generateScenarios,
-  getBaseConfig
+  getBaseConfig,
+  getConfigFilePath
 };

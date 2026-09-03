@@ -1,20 +1,26 @@
 const runner = require('./runner');
 const projects = require('./projects');
+const backstopConfig = require('./backstopConfig');
 
 /**
  * Ejecuta un pipeline de pasos para un proyecto adicional, encargándose de:
  *  - escribir su archivo de lista de URLs si corresponde (modo "url"),
  *  - inyectar las variables de entorno propias del proyecto (PROJECT_ID,
  *    BACKSTOP_DATA_DIR, y las de su modo: sitemap, lista o diseño),
- *  - "activar" su configuración guardada (escenarios, viewports, etc.) en
- *    el backstop.json de la raíz antes de invocar el CLI, siempre — tanto
- *    para reference/test/approve (que lo leen tal cual) como para un paso
- *    de generación (los scripts preservan viewports/engine/etc. de lo que
- *    ya esté en el archivo, así que si no se sincroniza primero heredarían
- *    lo que haya quedado ahí de otra corrida y se perdería, por ejemplo,
- *    un viewport agregado a mano que todavía no pasó por una generación),
+ *  - sembrar la configuración guardada del proyecto (escenarios, viewports,
+ *    etc.) en el backstop.json AISLADO de esta corrida antes de invocar el
+ *    CLI (los scripts de generación preservan viewports/engine/etc. de lo
+ *    que ya esté ahí, así que si no se siembra primero perderían, por
+ *    ejemplo, un viewport agregado a mano que todavía no pasó por una
+ *    generación),
  *  - y volver a guardar la configuración generada en el proyecto cuando el
  *    pipeline sí generó escenarios nuevos.
+ *
+ * Cada corrida usa su propio archivo de config (ver server/lib/runner.js),
+ * así que dos proyectos distintos pueden generar/probar en paralelo sin
+ * pisarse. Corridas del MISMO proyecto se siguen sirviendo en orden (misma
+ * `key`) porque comparten la config persistida a la que hay que leer y
+ * escribir de vuelta.
  */
 function runPipeline(project, steps, { label, scheduleId } = {}) {
   const hasGenerateStep = steps.some(step => step.startsWith('generate'));
@@ -26,35 +32,21 @@ function runPipeline(project, steps, { label, scheduleId } = {}) {
     envOverrides,
     label: label || defaultLabel,
     scheduleId,
-    // Se ejecuta recién cuando esta corrida sale de la cola, nunca antes:
-    // así una generación no pisa el backstop.json compartido mientras otra
-    // corrida (de este proyecto o de otro) todavía lo está usando. También
-    // relee el proyecto por si su configuración cambió mientras esperaba.
-    beforeStart: () => {
+    key: `project:${project.id}`,
+    beforeStart: configFile => {
       const fresh = projects.get(project.id);
       if (fresh.mode === 'url' && steps.includes('generate-list')) {
         projects.writeUrlListFile(fresh);
       }
-      // Siempre activamos la config guardada del proyecto antes de tocar el
-      // CLI: para reference/test/approve porque la leen tal cual, y para un
-      // paso de generación porque los scripts preservan viewports/engine/etc.
-      // de lo que ya haya en backstop.json — si no lo sincronizamos primero,
-      // heredarían lo que haya quedado ahí de otra corrida.
-      projects.syncToDisk(fresh.id);
-    }
-  });
-
-  if (hasGenerateStep) {
-    runner.subscribe(run.id, () => {}, finished => {
-      if (finished && finished.status === 'success') {
-        try {
-          projects.syncFromDisk(project.id);
-        } catch (error) {
-          console.warn(`No se pudo sincronizar el proyecto "${project.id}" tras generar: ${error.message}`);
+      backstopConfig.writeConfigFile(configFile, fresh.config || backstopConfig.emptyConfig());
+    },
+    afterSuccess: hasGenerateStep
+      ? configFile => {
+          const config = backstopConfig.readConfigFile(configFile);
+          projects.saveGeneratedConfig(project.id, config);
         }
-      }
-    });
-  }
+      : null
+  });
 
   return run;
 }

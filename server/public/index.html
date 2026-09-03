@@ -34,6 +34,9 @@
       <div class="status-line"><span class="status-dot"></span> SYSTEM ONLINE</div>
       <div class="sidebar-footer">
         <a href="/report/" target="_blank" rel="noopener">Ver último reporte ↗</a>
+        <div id="session-user" class="hint" style="margin-top:.6rem"></div>
+        <a href="/login.html" style="display:block;margin-top:.3rem">+ Agregar compañero</a>
+        <button class="btn btn-sm" id="btn-logout" style="margin-top:.5rem;width:100%">Cerrar sesión</button>
       </div>
     </aside>
 
@@ -280,7 +283,9 @@
           <div class="field-row">
             <div class="field checkbox"><label><input type="checkbox" id="cfg-REJECT_UNAUTHORIZED" /> REJECT_UNAUTHORIZED</label></div>
             <div class="field checkbox"><label><input type="checkbox" id="cfg-DEBUG" /> DEBUG</label></div>
+            <div class="field"><label>MAX_CONCURRENT_RUNS</label><input id="cfg-MAX_CONCURRENT_RUNS" type="number" min="1" placeholder="3" /></div>
           </div>
+          <p class="hint" style="margin-top:-.5rem">Cuántas corridas (referencia/prueba/generación) pueden ejecutarse al mismo tiempo. Cada una lanza su propio Chromium — subilo con cuidado según la RAM/CPU disponible.</p>
           <button class="btn btn-primary" id="btn-save-settings">Guardar configuración</button>
         </div>
       </section>

@@ -164,23 +164,15 @@ function setViewports(id, viewports) {
   return withProject(id, config => backstopConfig.setViewportsInConfig(config, viewports).viewports);
 }
 
-/* ---------------------- sync con backstop.json raíz ---------------------- */
-/* Los scripts de generación y el CLI de BackstopJS sólo saben leer/escribir
- * el backstop.json de la raíz del repo. Para poder reusarlos tal cual con
- * varios proyectos, "activamos" un proyecto copiando su config guardada al
- * archivo raíz justo antes de invocar el CLI, y leemos el resultado de vuelta
- * después de generar. */
+/* ------------------------- config generada por corrida -------------------- */
+/* Cada corrida de un proyecto usa su propio backstop.json aislado (ver
+ * server/lib/runner.js), así que no hay un archivo compartido que "activar":
+ * simplemente se guarda de vuelta lo que la corrida generó. */
 
-function syncToDisk(id) {
-  const project = get(id);
-  backstopConfig.writeRootConfig(project.config || backstopConfig.emptyConfig());
-}
-
-function syncFromDisk(id) {
+function saveGeneratedConfig(id, config) {
   const all = readAll();
   const idx = all.findIndex(p => p.id === id);
   if (idx === -1) throw new Error(`No se encontró el proyecto "${id}".`);
-  const config = backstopConfig.readRootConfig();
   all[idx].config = config;
   all[idx].updatedAt = new Date().toISOString();
   all[idx].lastGeneratedAt = new Date().toISOString();
@@ -256,8 +248,7 @@ module.exports = {
   updateScenario,
   deleteScenario,
   setViewports,
-  syncToDisk,
-  syncFromDisk,
+  saveGeneratedConfig,
   envFor,
   generateStepFor,
   writeUrlListFile,

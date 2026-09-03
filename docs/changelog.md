@@ -2,7 +2,29 @@
 
 ---
 
-## [Unreleased] — 2026-09-03
+## [Unreleased] — 2026-09-03 (login + concurrencia)
+
+### Añadido
+
+#### Login con Postgres
+
+El panel web (`npm run ui`) ahora requiere iniciar sesión — pensado para que lo use un equipo (no una sola persona) sin exponer las pruebas de cada quien a cualquiera con el link.
+
+- `DATABASE_URL` (obligatoria) apunta a una base Postgres donde se guardan los usuarios (`users`: email + contraseña con hash `bcrypt`) y las sesiones (`session`, gestionada por `connect-pg-simple` — sobreviven un reinicio del servidor). Ambas tablas se crean solas en el primer arranque.
+- El primer registro (`/login.html`, pestaña "Crear cuenta") crea la cuenta inicial y entra automáticamente; a partir de ahí el registro se cierra para cualquiera sin sesión — sólo un usuario ya logueado puede dar de alta a un compañero ("+ Agregar compañero" en la barra lateral).
+- Todo el panel (API, `/report`, `/backstop_data/<proyecto>/...`) exige sesión iniciada, salvo `/login.html` y `/api/auth/*`.
+- No hay roles: cualquier cuenta tiene acceso completo al panel. Ver `docs/07-dashboard.md` sección 11.
+
+#### Fin de la cola global: corridas en paralelo
+
+Hasta ahora, todos los proyectos (principal y adicionales) compartían un único `backstop.json` en la raíz como "área de staging" para invocar el CLI de BackstopJS, así que sólo podía haber una corrida a la vez en todo el panel — un cuello de botella real para un equipo usando el panel al mismo tiempo.
+
+- Cada corrida ahora recibe su **propio** `backstop.json` aislado (`data/runs/<id>.backstop.json`), pasado al CLI de BackstopJS vía `--config` y a los scripts de generación vía la nueva variable `BACKSTOP_CONFIG_FILE` (con fallback al `backstop.json` de la raíz para quien siga usando sólo la línea de comandos).
+- Corridas de **proyectos distintos** (o de un proyecto adicional y el principal) ahora se ejecutan **en paralelo de verdad**, hasta el límite `MAX_CONCURRENT_RUNS` (nueva variable, default `3`, editable desde la pestaña Configuración) — pensado para varias personas disparando pruebas de páginas distintas al mismo tiempo.
+- Corridas del **mismo** proyecto se siguen sirviendo en orden entre sí (ahora por una cola *por proyecto*, no una cola global), porque comparten la configuración persistida que hay que leer y volver a guardar al terminar de generar.
+- Verificado en vivo: dos proyectos generando y luego corriendo `reference` (Puppeteer real) al mismo tiempo, sin cruzarse — cada uno con sus propios escenarios, bitmaps y reporte.
+
+
 
 ### Añadido
 

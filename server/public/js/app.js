@@ -755,6 +755,7 @@
       document.getElementById('cfg-REQUEST_HEADERS').value = env.REQUEST_HEADERS || '';
       document.getElementById('cfg-REJECT_UNAUTHORIZED').checked = env.REJECT_UNAUTHORIZED === 'true';
       document.getElementById('cfg-DEBUG').checked = env.DEBUG === 'true';
+      document.getElementById('cfg-MAX_CONCURRENT_RUNS').value = env.MAX_CONCURRENT_RUNS || '';
     } catch (error) {
       toast(error.message, true);
     }
@@ -776,7 +777,8 @@
       URL_LIST: document.getElementById('cfg-URL_LIST').value.trim(),
       REQUEST_HEADERS: document.getElementById('cfg-REQUEST_HEADERS').value.trim(),
       REJECT_UNAUTHORIZED: document.getElementById('cfg-REJECT_UNAUTHORIZED').checked ? 'true' : '',
-      DEBUG: document.getElementById('cfg-DEBUG').checked ? 'true' : ''
+      DEBUG: document.getElementById('cfg-DEBUG').checked ? 'true' : '',
+      MAX_CONCURRENT_RUNS: document.getElementById('cfg-MAX_CONCURRENT_RUNS').value.trim()
     };
     try {
       await api('/settings', { method: 'PUT', body: JSON.stringify({ env }) });
@@ -1336,6 +1338,25 @@
     }
   }
 
+  // ---------- sesión ----------
+  async function loadSession() {
+    try {
+      const { user } = await api('/auth/me');
+      document.getElementById('session-user').textContent = user.email;
+    } catch (error) {
+      window.location.href = '/login.html';
+    }
+  }
+
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    try {
+      await api('/auth/logout', { method: 'POST' });
+    } finally {
+      window.location.href = '/login.html';
+    }
+  });
+
   // ---------- init ----------
+  loadSession();
   loadDashboard();
 })();

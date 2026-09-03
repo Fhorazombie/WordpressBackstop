@@ -4,23 +4,27 @@ const { BACKSTOP_JSON, DEFAULT_PROJECT_FILE, PROJECTS_FILE } = require('./paths'
 const { getBaseConfig } = require('../../scripts/lib/utils');
 
 /* ------------------------------------------------------------------------
- * backstop.json (raíz): el archivo de trabajo que lee/escribe directamente
- * el CLI de BackstopJS. El proyecto principal Y cada proyecto adicional lo
- * usan por turnos como "área de staging" para invocar los scripts —  nunca
- * hay que asumir que su contenido en un instante dado pertenece a un
- * proyecto en particular; para eso existe el almacenamiento persistente de
- * cada uno (más abajo, y project.config en server/lib/projects.js).
+ * Config aislada por corrida: cada pipeline (ver server/lib/runner.js) usa
+ * su propio backstop.json en vez de uno compartido, para poder correr en
+ * paralelo con otras corridas sin pisarse. Estas funciones leen o siembran
+ * ese archivo puntual.
  * ------------------------------------------------------------------------ */
 
-function readRootConfig() {
-  if (fs.existsSync(BACKSTOP_JSON)) {
-    return JSON.parse(fs.readFileSync(BACKSTOP_JSON, 'utf8'));
+function readConfigFile(filePath) {
+  if (fs.existsSync(filePath)) {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
   }
   return emptyConfig();
 }
 
-function writeRootConfig(config) {
-  fs.writeFileSync(BACKSTOP_JSON, JSON.stringify(config, null, 2), 'utf8');
+function writeConfigFile(filePath, config) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf8');
+}
+
+/** Sólo para la migración de un backstop.json preexistente (uso previo por CLI). */
+function readRootConfig() {
+  return readConfigFile(BACKSTOP_JSON);
 }
 
 /** Configuración base sin escenarios, para un proyecto que todavía no generó nada. */
@@ -57,18 +61,6 @@ function readDefaultConfig() {
 function writeDefaultConfig(config) {
   fs.mkdirSync(path.dirname(DEFAULT_PROJECT_FILE), { recursive: true });
   fs.writeFileSync(DEFAULT_PROJECT_FILE, JSON.stringify(config, null, 2), 'utf8');
-}
-
-/** "Activa" la config guardada del proyecto principal en backstop.json, para que el CLI la use. */
-function syncDefaultToDisk() {
-  writeRootConfig(readDefaultConfig());
-}
-
-/** Vuelca lo que haya en backstop.json (recién generado) al almacenamiento persistente. */
-function syncDefaultFromDisk() {
-  const config = readRootConfig();
-  writeDefaultConfig(config);
-  return config;
 }
 
 function findScenarioIndex(config, label) {
@@ -210,11 +202,10 @@ function setViewports(viewports) {
 
 module.exports = {
   readRootConfig,
-  writeRootConfig,
+  readConfigFile,
+  writeConfigFile,
   readDefaultConfig,
   writeDefaultConfig,
-  syncDefaultToDisk,
-  syncDefaultFromDisk,
   emptyConfig,
   normalizeScenario,
   addScenarioToConfig,

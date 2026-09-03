@@ -16,20 +16,13 @@ router.post('/generate/:mode', (req, res) => {
       steps: [mode === 'sitemap' ? 'generate-sitemap' : 'generate-list'],
       envOverrides,
       label: mode === 'sitemap' ? 'Generar desde sitemap' : 'Generar desde lista',
-      // Activa la config guardada del proyecto principal en backstop.json
-      // recién cuando le toca el turno (no antes), para que el script no
-      // herede lo que haya quedado ahí de la corrida de otro proyecto.
-      beforeStart: () => backstopConfig.syncDefaultToDisk()
-    });
-
-    runner.subscribe(run.id, () => {}, finished => {
-      if (finished && finished.status === 'success') {
-        try {
-          backstopConfig.syncDefaultFromDisk();
-        } catch (error) {
-          console.warn(`No se pudo sincronizar el proyecto principal tras generar: ${error.message}`);
-        }
-      }
+      key: 'default',
+      // Siembra el backstop.json AISLADO de esta corrida con la config
+      // guardada del proyecto principal recién cuando le toca el turno (no
+      // antes), para que el script no herede lo que haya quedado en la
+      // config de otra corrida en curso.
+      beforeStart: configFile => backstopConfig.writeConfigFile(configFile, backstopConfig.readDefaultConfig()),
+      afterSuccess: configFile => backstopConfig.writeDefaultConfig(backstopConfig.readConfigFile(configFile))
     });
 
     res.status(202).json({ runId: run.id });

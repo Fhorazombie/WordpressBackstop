@@ -13,13 +13,14 @@ const {
   detectAndConfigureSSL: detectAndConfigureSSLUtil,
   generateLabel: generateLabelUtil,
   generateScenarios: generateScenariosUtil,
-  getBaseConfig: getBaseConfigUtil
+  getBaseConfig: getBaseConfigUtil,
+  getConfigFilePath
 } = require('./lib/utils');
 
 // Configuración
 const SITE_URL = process.env.SITE_URL || 'https://wordpress.org';
 const SITEMAP_URL = process.env.SITE_URL + process.env.SITEMAP_URL || `${SITE_URL}/sitemap.xml`;
-const OUTPUT_FILE = path.join(__dirname, '..', 'backstop.json');
+const OUTPUT_FILE = getConfigFilePath();
 const PROJECT_ID = process.env.PROJECT_ID || 'backstop_default';
 const CUSTOM_DATA_DIR = process.env.BACKSTOP_DATA_DIR;
 const DATA_DIR = CUSTOM_DATA_DIR ? path.join('backstop_data', CUSTOM_DATA_DIR) : 'backstop_data';
@@ -795,7 +796,7 @@ function getBaseConfig() {
   let baseConfig = {};
   
   try {
-    const configPath = path.join(__dirname, '..', 'backstop.json');
+    const configPath = getConfigFilePath();
     if (fs.existsSync(configPath)) {
       const existing = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       // Mantener toda la configuración excepto los escenarios

@@ -27,23 +27,16 @@ router.post('/run', (req, res) => {
       steps,
       envOverrides: body.env || {},
       label: body.label,
-      // Activa la config guardada del proyecto principal en backstop.json
-      // recién cuando le toca el turno (no antes), para que reference/test/
-      // approve nunca lean lo que haya quedado ahí de otro proyecto.
-      beforeStart: () => backstopConfig.syncDefaultToDisk()
+      key: 'default',
+      // Siembra el backstop.json AISLADO de esta corrida con la config
+      // guardada del proyecto principal recién cuando le toca el turno (no
+      // antes), para que reference/test/approve nunca lean la config de
+      // otra corrida en curso.
+      beforeStart: configFile => backstopConfig.writeConfigFile(configFile, backstopConfig.readDefaultConfig()),
+      afterSuccess: hasGenerateStep
+        ? configFile => backstopConfig.writeDefaultConfig(backstopConfig.readConfigFile(configFile))
+        : null
     });
-
-    if (hasGenerateStep) {
-      runner.subscribe(run.id, () => {}, finished => {
-        if (finished && finished.status === 'success') {
-          try {
-            backstopConfig.syncDefaultFromDisk();
-          } catch (error) {
-            console.warn(`No se pudo sincronizar el proyecto principal tras generar: ${error.message}`);
-          }
-        }
-      });
-    }
 
     res.status(202).json({ runId: run.id });
   } catch (error) {

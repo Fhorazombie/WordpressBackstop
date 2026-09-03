@@ -8,7 +8,8 @@ require('dotenv').config();
 const {
   detectAndConfigureSSL,
   isLocalDomain,
-  getBaseConfig
+  getBaseConfig,
+  getConfigFilePath
 } = require('./lib/utils');
 
 // ─── Configuración desde env vars ────────────────────────────────────────────
@@ -23,7 +24,7 @@ const SCENARIO_DELAY    = process.env.SCENARIO_DELAY ? parseInt(process.env.SCEN
 const SCRIPTS_DIR       = process.env.BACKSTOP_SCRIPTS_DIR || 'backstop_data/engine_scripts';
 
 const ROOT         = path.resolve(__dirname, '..');
-const OUTPUT_FILE  = path.join(ROOT, 'backstop.json');
+const OUTPUT_FILE  = getConfigFilePath();
 
 // Respeta BACKSTOP_DATA_DIR (igual que generate-from-sitemap.js/generate-from-list.js)
 // para que cada proyecto tenga su propia carpeta de referencia de diseño aislada.

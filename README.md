@@ -159,11 +159,19 @@ npm run approve
 
 Además del flujo por línea de comandos, el proyecto incluye una interfaz web para gestionar y programar las pruebas sin tocar la terminal.
 
+El panel requiere una base de datos **Postgres** para el login (usuarios y sesiones):
+
 ```bash
+createdb backstop_ui
+echo "DATABASE_URL=postgres://usuario:password@localhost:5432/backstop_ui" >> .env
+echo "SESSION_SECRET=$(openssl rand -hex 32)" >> .env
+
 npm run ui
 ```
 
-Esto levanta un servidor local (por defecto en `http://localhost:4780`, configurable con `UI_PORT`) con:
+La primera vez, `http://localhost:4780` te redirige a una pantalla de login donde te creás la cuenta inicial (el primer registro entra directo, sin invitación); de ahí en adelante, sólo alguien ya logueado puede dar de alta a un compañero nuevo. Ver el detalle completo en [`docs/07-dashboard.md`](docs/07-dashboard.md#11-login-usuarios-y-sesión-postgres).
+
+Una vez logueado, esto levanta un servidor local (por defecto en `http://localhost:4780`, configurable con `UI_PORT`) con:
 
 *   **Dashboard**: contadores rápidos (escenarios, viewports, schedules activos, proyectos adicionales, última corrida) y botones de acción rápida (generar, crear referencias, ejecutar pruebas, aprobar cambios), cada uno con el log en vivo de la ejecución.
 *   **Escenarios**: alta, edición y borrado de escenarios del proyecto principal (`backstop.json`) — URL, selectores a ocultar/remover, umbral de comparación, tiempo de espera antes de capturar, etc. — y gestión de sus viewports, sin necesidad de regenerar desde sitemap/lista.
@@ -174,7 +182,7 @@ Esto levanta un servidor local (por defecto en `http://localhost:4780`, configur
 *   **Configuración**: editor de las variables principales del archivo `.env`, incluyendo `SCENARIO_DELAY` (ver abajo).
 *   **Historial**: registro de todas las corridas (manuales y programadas, de cualquier proyecto) con su log completo.
 
-Todas las corridas —del proyecto principal o de cualquier proyecto adicional— comparten el mismo `backstop.json` de la raíz y la misma instancia de BackstopJS, así que el panel las ejecuta en fila (una por vez) automáticamente para que nunca se pisen entre sí; si disparás varias a la vez, las siguientes quedan "en cola" y arrancan apenas termina la anterior.
+Cada corrida —del proyecto principal o de cualquier proyecto adicional— usa su propio `backstop.json` aislado, así que corridas de proyectos distintos se ejecutan **en paralelo de verdad** (hasta `MAX_CONCURRENT_RUNS`, default `3`); sólo dos corridas del mismo proyecto se siguen esperando entre sí, para no pisar su configuración compartida. Ver el detalle en [`docs/07-dashboard.md`](docs/07-dashboard.md#4-proyectos-páginas-adicionales-aisladas).
 
 Los datos de esta interfaz (historial de corridas, schedules y proyectos adicionales) se guardan en `data/` (ignorado por git, igual que `.env`), por lo que cada entorno mantiene su propia configuración.
 

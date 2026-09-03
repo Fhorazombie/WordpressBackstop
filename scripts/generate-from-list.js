@@ -8,12 +8,13 @@ require('dotenv').config();
 const {
   detectAndConfigureSSL,
   generateScenarios,
-  getBaseConfig
+  getBaseConfig,
+  getConfigFilePath
 } = require('./lib/utils');
 
 // Configuración
 const URL_LIST_FILE = process.env.URL_LIST;
-const OUTPUT_FILE = path.join(__dirname, '..', 'backstop.json');
+const OUTPUT_FILE = getConfigFilePath();
 const URL_LISTS_DIR = path.join(__dirname, '..', 'url-lists');
 
 /**
