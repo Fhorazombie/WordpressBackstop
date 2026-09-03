@@ -153,6 +153,30 @@ npm run approve
 
 ---
 
+---
+
+## 🖥️ Panel Visual (Dashboard)
+
+Además del flujo por línea de comandos, el proyecto incluye una interfaz web para gestionar y programar las pruebas sin tocar la terminal.
+
+```bash
+npm run ui
+```
+
+Esto levanta un servidor local (por defecto en `http://localhost:4780`, configurable con `UI_PORT`) con:
+
+*   **Dashboard**: contadores rápidos (escenarios, viewports, schedules activos, última corrida) y botones de acción rápida (generar, crear referencias, ejecutar pruebas, aprobar cambios), cada uno con el log en vivo de la ejecución.
+*   **Escenarios**: alta, edición y borrado de escenarios de `backstop.json` (URL, selectores a ocultar/remover, umbral de comparación, delay, etc.) y gestión de los viewports globales — sin necesidad de regenerar desde sitemap/lista.
+*   **Generar**: dispara `generate-from-sitemap` o `generate-from-list` desde el navegador, con los mismos parámetros que las variables de entorno (`SITE_URL`, `SITEMAP_URL`, muestreo, límites), mostrando el progreso en tiempo real.
+*   **Listas de URLs**: crear, editar y borrar los archivos de `url-lists/` directamente desde la UI.
+*   **Programación**: crear *schedules* con expresión cron (con atajos comunes) que ejecutan un pipeline configurable — por ejemplo "generar desde sitemap → crear referencias" cada noche, o "ejecutar pruebas" cada hora — con historial de la última corrida, ejecución manual ("Ejecutar ahora") y activar/pausar sin perder la configuración.
+*   **Configuración**: editor de las variables principales del archivo `.env`.
+*   **Historial**: registro de todas las corridas (manuales y programadas) con su log completo.
+
+Los datos de esta interfaz (historial de corridas y schedules) se guardan en `data/` (ignorado por git, igual que `.env`), por lo que cada entorno mantiene su propia configuración.
+
+---
+
 ## 📚 Documentación Detallada
 
 Para profundizar en cada aspecto del proyecto, consulta los siguientes documentos:

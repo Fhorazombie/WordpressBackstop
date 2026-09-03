@@ -12,10 +12,13 @@
     "approve": "backstop approve",
     "reset": "node scripts/reset-backstop.js",
     "design-generate": "node scripts/generate-from-design.js",
-    "design-compare": "backstop reference && backstop test"
+    "design-compare": "backstop reference && backstop test",
+    "ui": "node server/index.js"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "node-cron": "^4.6.0",
     "node-fetch": "^2.7.0",
     "sitemapper": "^4.0.2"
   },

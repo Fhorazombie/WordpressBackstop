@@ -26,6 +26,9 @@ backstop_data/*/
 !backstop_data/cookies.json
 !backstop_data/imageStub.jpg
 
+# Dashboard visual: historial de corridas y schedules (estado local, como .env)
+data/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
