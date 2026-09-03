@@ -82,6 +82,17 @@ El script intenta detectar automáticamente entornos locales (`.test`, `localhos
     ```
 *   Asegúrate de que `backstop.json` tenga la opción `ignoreHTTPSErrors: true` en `engineOptions` (aunque Puppeteer suele manejar esto con `--no-sandbox` y flags adicionales).
 
+### Secciones en blanco en la captura (contenido con lazy-load)
+
+**Síntoma:**
+La captura muestra el header y el footer correctamente, pero hay franjas en blanco donde debería haber imágenes, sliders, videos u otras secciones — y subir `SCENARIO_DELAY`/`delay` no lo soluciona, por más alto que lo pongas.
+
+**Causa:**
+Ese contenido usa *lazy-load* (imágenes `loading="lazy"`, `IntersectionObserver`, plugins de lazy-load de WordPress, sliders, embeds, etc.) que sólo se dispara cuando el elemento entra en pantalla al hacer scroll. El `delay` únicamente espera un tiempo fijo — no simula que alguien scrollea la página — así que ese contenido nunca llega a cargar antes de la captura.
+
+**Solución:**
+Desde esta versión, `backstop.json` incluye por defecto `onReadyScript: "onReady.js"`, que apunta a `backstop_data/engine_scripts/onReady.js`: un script que recorre toda la página antes de capturar (disparando el lazy-load real) y vuelve arriba antes de la foto. Si tu proyecto fue generado con una versión anterior y no lo tiene, simplemente volvé a generar los escenarios (`npm run generate-sitemap` / `generate-list`, o el botón "Generar" del panel) para que se agregue automáticamente. Si necesitás ajustar el comportamiento del scroll (velocidad, tope de pasos), podés editar directamente `backstop_data/engine_scripts/onReady.js`.
+
 ## Problemas con Puppeteer Recordings
 
 ### El script de grabación falla al ejecutarse en BackstopJS

@@ -815,6 +815,11 @@ function getBaseConfig() {
     engineOptions: {
       args: ["--no-sandbox"]
     },
+    // Recorre la página antes de capturar, para disparar contenido con
+    // lazy-load (imágenes, secciones con IntersectionObserver, etc.) que
+    // de otra forma queda en blanco aunque el "delay" sea muy alto.
+    // Ver backstop_data/engine_scripts/onReady.js
+    onReadyScript: "onReady.js",
     asyncCaptureLimit: 5,
     asyncCompareLimit: 50,
     debug: false,

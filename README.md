@@ -188,6 +188,8 @@ Algunas páginas tardan en terminar de cargar (animaciones, lazy-load de imágen
 
 Este valor es el *default* de todos los escenarios generados automáticamente; también podés ajustar el `delay` de un escenario puntual a mano desde su formulario de edición.
 
+> **Importante — `SCENARIO_DELAY` no alcanza para contenido con lazy-load.** Si tu página tiene secciones que sólo cargan cuando el usuario hace scroll (imágenes `loading="lazy"`, animaciones por IntersectionObserver, plugins de lazy-load de WordPress, sliders, videos incrustados a mitad de página, etc.), esas partes van a aparecer **en blanco** en la captura sin importar cuánto subas el delay — el delay sólo espera, no simula que alguien scrollea la página, y BackstopJS por sí solo nunca la scrollea. Por eso el proyecto trae `backstop_data/engine_scripts/onReady.js`: un script que recorre toda la página de arriba a abajo (disparando ese contenido, como haría una persona real) y vuelve al tope antes de capturar. Se activa automáticamente en todo escenario nuevo desde esta versión. Si ya tenías proyectos generados con una versión anterior, simplemente volvé a **Generar** (o corré `npm run generate-sitemap` / `generate-list` de nuevo) para que tomen el fix — no hace falta tocar nada más.
+
 ---
 
 ## 📚 Documentación Detallada
